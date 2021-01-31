@@ -1,0 +1,37 @@
+Name:           sr-log
+Version:        1.0.0
+License:        BSD3
+License-File:   COPYING
+Author:         David Fox, Clifford Beshers
+Category:       Unclassified
+Synopsis:       Logging functions, particularly for a GHCJS client
+Description: A mimimal, contained library of logging utilities with minimal package and runtime overhead.
+Maintainer:     David Fox <dsf@seereason.com>, Clifford Beshers <beshers@seereason.com>
+Homepage:       https://github.com/seereason/sr-log
+Build-Type:     Simple
+Cabal-Version:  >= 1.10
+Tested-With: GHC==8.6.4, GHC==8.6.5
+
+Library
+  default-language: Haskell2010
+  GHC-Options: -Wall -Wredundant-constraints
+  Build-Depends:
+    base >= 4.9 && < 5,
+    exceptions,
+    hslogger,
+    mtl,
+    template-haskell,
+    text,
+    th-lift,
+    th-lift-instances,
+    th-orphans,
+    time >= 1.1,
+    transformers,
+    unexceptionalio-trans,
+    uuid,
+    uuid-types
+  Default-Extensions: ConstraintKinds, CPP, DataKinds, DeriveDataTypeable, DeriveFunctor, DeriveGeneric
+  Default-Extensions: FlexibleInstances, FlexibleContexts, MultiParamTypeClasses, RankNTypes
+  Default-Extensions: ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies
+  Exposed-modules:
+    SeeReason.Log
