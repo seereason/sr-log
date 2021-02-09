@@ -20,6 +20,10 @@ Library
     hslogger,
     mtl,
     time
+  if impl(ghcjs)
+    Build-Depends:
+      template-haskell
+
   Default-Extensions: ConstraintKinds, CPP, DataKinds, DeriveDataTypeable, DeriveFunctor, DeriveGeneric
   Default-Extensions: FlexibleInstances, FlexibleContexts, MultiParamTypeClasses, RankNTypes
   Default-Extensions: ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies
