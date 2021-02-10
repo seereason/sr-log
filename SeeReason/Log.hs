@@ -11,17 +11,12 @@ module SeeReason.Log
 #endif
   ) where
 
---import Control.Lens(ix, preview, to)
---import Control.Monad.Except (MonadError(catchError, throwError))
 import Control.Monad.Trans (liftIO, MonadIO)
---import Data.Bool (bool)
-import Data.List (intercalate)
-import Data.Maybe (fromMaybe, mapMaybe)
 #if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup (Semigroup((<>)))
 #endif
 import Data.Time (getCurrentTime, UTCTime)
-import Data.Time.Format (formatTime, defaultTimeLocale)
+--import Data.Time.Format (formatTime, defaultTimeLocale)
 import GHC.Stack (CallStack, callStack, getCallStack, HasCallStack, SrcLoc(..))
 #if !__GHCJS__
 import Language.Haskell.TH (ExpQ, Exp, Loc(..), location, pprint, Q)
@@ -29,7 +24,7 @@ import qualified Language.Haskell.TH.Lift as TH (Lift(lift))
 import Language.Haskell.TH.Instances ()
 #endif
 
-import System.Log.Logger (Priority(..), logM, rootLoggerName)
+import System.Log.Logger (Priority(..), logM)
 
 alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alog priority msg = liftIO $ do
@@ -38,7 +33,7 @@ alog priority msg = liftIO $ do
     logString time priority msg
 
 logString  :: HasCallStack => UTCTime -> Priority -> String -> String
-logString time priority msg =
+logString _time _priority msg =
 #if defined(darwin_HOST_OS)
   take 2002 $
 #else

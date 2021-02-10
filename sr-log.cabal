@@ -18,14 +18,18 @@ Library
   Build-Depends:
     base >= 4.9 && < 5,
     hslogger,
+    lens,
     mtl,
     time
-  if impl(ghcjs)
+  if impl(ghc)
     Build-Depends:
-      template-haskell
+      template-haskell,
+      th-lift,
+      th-orphans
 
   Default-Extensions: ConstraintKinds, CPP, DataKinds, DeriveDataTypeable, DeriveFunctor, DeriveGeneric
   Default-Extensions: FlexibleInstances, FlexibleContexts, MultiParamTypeClasses, RankNTypes
   Default-Extensions: ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies
   Exposed-modules:
-    SeeReason.Log
+    SeeReason.Log,
+    SeeReason.LogWM
