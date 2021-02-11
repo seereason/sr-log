@@ -1,7 +1,6 @@
 Name:           sr-log
 Version:        1.0.0
 License:        BSD3
-License-File:   COPYING
 Author:         David Fox, Clifford Beshers
 Category:       Unclassified
 Synopsis:       Logging functions, particularly for a GHCJS client
