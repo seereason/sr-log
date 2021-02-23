@@ -68,7 +68,7 @@ putLoc = liftIO (putStr (loc <> " - "))
 -- | Format the location of the nth level up in a call stack
 loc :: HasCallStack => String
 loc =
-  case dropWhile (\(_, SrcLoc {..}) -> srcLocModule == "Extra.Log") (getCallStack callStack) of
+  case dropWhile (\(_, SrcLoc {..}) -> srcLocModule == "SeeReason.Log") (getCallStack callStack) of
     [] -> "(no CallStack)"
     [(_alog, SrcLoc {..})] -> srcLocModule <> ":" <> show srcLocStartLine
     ((_, SrcLoc {..}) : (fn, _) : _) -> srcLocModule <> "." <> fn <> ":" <> show srcLocStartLine
