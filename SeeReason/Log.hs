@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE CPP, TemplateHaskell #-}
 {-# OPTIONS -Wall #-}
@@ -38,14 +39,14 @@ import GHC.Stack (CallStack, callStack, getCallStack, HasCallStack, SrcLoc(..))
 #if !__GHCJS__
 import Language.Haskell.TH.Instances ()
 #endif
-import System.Log.Logger (getLevel, getLogger, getRootLogger, logL, Priority(..))
+import System.Log.Logger (getLevel, getLogger, getRootLogger, Logger, logL, Priority(..))
 import Text.Printf (printf)
 
 alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alog priority msg = liftIO $ do
   -- time <- getCurrentTime
-  logger <- getRootLogger
-  logL logger priority (logString msg)
+  l <- logger
+  logL l priority (logString msg)
 
 alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
 alogs priority msgs = alog priority (unwords msgs)
@@ -65,10 +66,21 @@ printLoc x = putLoc >> liftIO (print x)
 putLoc :: (HasCallStack, MonadIO m) => m ()
 putLoc = liftIO (putStr (loc <> " - "))
 
+-- | Get the portion of the stack before we entered this module.
+stk :: HasCallStack => [([Char], SrcLoc)]
+stk = dropWhile (\(_, SrcLoc {..}) -> srcLocModule == "SeeReason.Log") (getCallStack callStack)
+
+-- | A logger based on the module name at the top of the stack.
+logger :: HasCallStack => IO Logger
+logger =
+  case stk of
+    [] -> getRootLogger
+    ((_, SrcLoc {..}) : _) -> getLogger srcLocModule
+
 -- | Format the location of the nth level up in a call stack
 loc :: HasCallStack => String
 loc =
-  case dropWhile (\(_, SrcLoc {..}) -> srcLocModule == "SeeReason.Log") (getCallStack callStack) of
+  case stk of
     [] -> "(no CallStack)"
     [(_alog, SrcLoc {..})] -> srcLocModule <> ":" <> show srcLocStartLine
     ((_, SrcLoc {..}) : (fn, _) : _) -> srcLocModule <> "." <> fn <> ":" <> show srcLocStartLine
@@ -103,10 +115,10 @@ alog' priority msg = do
   level <- getLevel <$> liftIO (maybe getRootLogger getLogger (loc' callStack 1))
   prev <- use savedTime
   time <- liftIO getCurrentTime
-  logger <- liftIO getRootLogger
+  l <- liftIO logger
   when (level <= Just priority) (savedTime .= time)
   liftIO $
-    logL logger priority $
+    logL l priority $
       logString' prev time priority msg
 
 logString'  :: UTCTime -> UTCTime -> Priority -> String -> String
