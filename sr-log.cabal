@@ -1,5 +1,5 @@
 Name:           sr-log
-Version:        1.2
+Version:        1.3
 License:        BSD3
 Author:         David Fox, Clifford Beshers
 Category:       Unclassified
@@ -21,12 +21,14 @@ Library
     mtl,
     time
   if impl(ghc)
+    Exposed-Modules: SeeReason.LogServer
     Build-Depends:
+      directory,
+      process,
       template-haskell,
-      th-lift,
-      th-orphans
+      text
 
   Default-Extensions: ConstraintKinds, CPP, DataKinds, DeriveDataTypeable, DeriveFunctor, DeriveGeneric
   Default-Extensions: FlexibleInstances, FlexibleContexts, MultiParamTypeClasses, RankNTypes
   Default-Extensions: ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies
-  Exposed-modules: SeeReason.Log
+  Exposed-modules: SeeReason.Log SeeReason.LogClient SeeReason.LogFormat

@@ -36,9 +36,6 @@ import Data.Time (diffUTCTime, getCurrentTime, UTCTime)
 import Data.Time.Format (formatTime, defaultTimeLocale)
 #endif
 import GHC.Stack (CallStack, callStack, getCallStack, HasCallStack, SrcLoc(..))
-#if !__GHCJS__
-import Language.Haskell.TH.Instances ()
-#endif
 import System.Log.Logger (getLevel, getLogger, getRootLogger, Logger, logL, Priority(..))
 import Text.Printf (printf)
 
