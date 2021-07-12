@@ -20,7 +20,7 @@ Library
     lens,
     mtl,
     time
-  if impl(ghc)
+  if !impl(ghcjs)
     Exposed-Modules: SeeReason.LogServer
     Build-Depends:
       directory,
