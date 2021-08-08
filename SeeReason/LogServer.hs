@@ -18,7 +18,7 @@ import System.Directory (doesFileExist)
 import System.Exit
 import System.IO (hPutStrLn, stderr)
 import System.Log.Handler.Syslog (openlog, Option(PID), Facility(..))
-import System.Log.Logger (Priority(..), getLevel, getLogger, logM, rootLoggerName, setHandlers, setLevel, updateGlobalLogger)
+import System.Log.Logger (Priority(..), getLevel, getLogger, logM, rootLoggerName, saveGlobalLogger, setHandlers, setLevel, updateGlobalLogger)
 import System.Process (readProcess)
 
   -- unwords [formatTimeCombined time, msg]
@@ -40,10 +40,23 @@ setupServerLogger facility lvl = do
   appLog <- openlog "appraisalscribe3" [PID] facility lvl
   updateGlobalLogger rootLoggerName (setLevel lvl . setHandlers [appLog])
 
-setServerLoggingLevel :: Priority -> IO ()
-setServerLoggingLevel lvl = do
-  updateGlobalLogger rootLoggerName (setLevel lvl)
-  printServerLogger
+setServerLoggingLevel :: String -> Priority -> IO ()
+setServerLoggingLevel name new = do
+  logger <- getLogger name
+  case getLevel logger of
+    Just old | old == new -> pure ()
+    _ -> do
+      saveGlobalLogger (setLevel new $ logger)
+      alog ALERT
+        ((case getLevel logger of
+            Nothing -> "Setting";
+            Just old -> "Changed") <>
+         (if name == rootLoggerName then "" else " logger " <> name) <>
+         " server logging level" <>
+         (case getLevel logger of
+            Nothing -> ""
+            Just old -> " from " <> show old) <>
+          " to " <> show new)
 
 printServerLogger :: MonadIO m => m ()
 printServerLogger = liftIO $ do
