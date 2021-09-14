@@ -6,10 +6,12 @@
 module SeeReason.Log
   ( -- * Logging
     alog
+  , alogDrop
   , alogs
   , printLoc
   , putLoc
-  , loc
+  , locDrop
+  , standardDrop
   , loc'
   , locs
   , logString
@@ -43,44 +45,67 @@ alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alog priority msg = liftIO $ do
   -- time <- getCurrentTime
   l <- logger
-  logL l priority (logString msg)
+  logL l priority (logString standardDrop msg)
+
+alogDrop :: (MonadIO m, HasCallStack) => ((String, SrcLoc) -> Bool) -> Priority -> String -> m ()
+alogDrop fn priority msg = liftIO $ do
+  -- time <- getCurrentTime
+  l <- logger
+  logL l priority (logString fn msg)
+
+#if 0
+logModule :: HasCallStack => String
+-- Unfortunately(?) the call stack is not available inside a template
+-- haskell splice.
+logModule =
+  $(case getCallStack callStack of
+       [] -> error "callStack failed"
+       ((_, SrcLoc {srcLocModule = m}) : _) -> lift =<< litE (stringL m))
+#else
+logModule :: String
+logModule = "SeeReason.Log"
+#endif
+
+standardDrop :: HasCallStack => (String, SrcLoc) -> Bool
+standardDrop (_, SrcLoc {srcLocModule = m}) = m == logModule
 
 alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
 alogs priority msgs = alog priority (unwords msgs)
 
-logString  :: HasCallStack => String -> String
-logString msg =
+logString  :: HasCallStack => ((String, SrcLoc) -> Bool) -> String -> String
+logString fn msg =
 #if defined(darwin_HOST_OS)
   take 2002 $
 #else
   take 60000 $
 #endif
-  loc <> " - " <> msg
+  locDrop fn <> " - " <> msg
 
 printLoc :: (Show a, HasCallStack, MonadIO m) => a -> m ()
 printLoc x = putLoc >> liftIO (print x)
 
 putLoc :: (HasCallStack, MonadIO m) => m ()
-putLoc = liftIO (putStr (loc <> " - "))
+putLoc = liftIO (putStr (locDrop standardDrop <> " - "))
 
 -- | Get the portion of the stack before we entered this module.
-stk :: HasCallStack => [([Char], SrcLoc)]
-stk = dropWhile (\(_, SrcLoc {..}) -> srcLocModule == "SeeReason.Log") (getCallStack callStack)
+trimmedStack :: HasCallStack => [([Char], SrcLoc)]
+trimmedStack = dropWhile standardDrop (getCallStack callStack)
 
 -- | A logger based on the module name at the top of the stack.
 logger :: HasCallStack => IO Logger
 logger =
-  case stk of
+  case trimmedStack of
     [] -> getRootLogger
     ((_, SrcLoc {..}) : _) -> getLogger srcLocModule
 
--- | Format the location of the nth level up in a call stack
-loc :: HasCallStack => String
-loc =
-  case stk of
+-- | Format the location of the top level of the call stack, after
+-- dropping calls from this module.
+locDrop :: HasCallStack => ((String, SrcLoc) -> Bool) -> String
+locDrop fn =
+  case dropWhile fn (getCallStack callStack) of
     [] -> "(no CallStack)"
     [(_alog, SrcLoc {..})] -> srcLocModule <> ":" <> show srcLocStartLine
-    ((_, SrcLoc {..}) : (fn, _) : _) -> srcLocModule <> "." <> fn <> ":" <> show srcLocStartLine
+    ((_, SrcLoc {..}) : (f, _) : _) -> srcLocModule <> "." <> f <> ":" <> show srcLocStartLine
 
 -- | Format the location of the nth level up in a call stack
 loc' :: CallStack -> Int -> Maybe String
