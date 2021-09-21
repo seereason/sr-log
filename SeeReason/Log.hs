@@ -6,7 +6,7 @@
 module SeeReason.Log
   ( -- * Logging
     alog
-    alogWithStack
+  , alogWithStack
   , alogDrop
   , alogs
   , printLoc
