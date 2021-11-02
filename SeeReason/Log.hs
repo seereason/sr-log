@@ -29,7 +29,7 @@ import Control.Monad.Except (when)
 import Control.Monad.State (MonadState)
 import Control.Monad.Trans (liftIO, MonadIO)
 import Data.Bool (bool)
-import Data.List (intercalate)
+import Data.List (intercalate, isSuffixOf)
 import Data.Maybe (fromMaybe)
 #if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup (Semigroup((<>)))
@@ -75,7 +75,7 @@ logModule = "SeeReason.Log"
 #endif
 
 standardDrop :: HasCallStack => (String, SrcLoc) -> Bool
-standardDrop (_, SrcLoc {srcLocModule = m}) = m == logModule
+standardDrop (_, SrcLoc {srcLocModule = m}) = isSuffixOf ".Log" m
 
 alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
 alogs priority msgs = alog priority (unwords msgs)
