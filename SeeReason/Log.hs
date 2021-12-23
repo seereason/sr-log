@@ -38,10 +38,13 @@ import Data.Time (diffUTCTime, getCurrentTime, UTCTime)
 #if MIN_VERSION_time(1,9,0)
 import Data.Time.Format (formatTime, defaultTimeLocale)
 #endif
-import GHC.Stack (CallStack, callStack, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
+import GHC.Stack (CallStack, callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
 import GHC.Stack.Types (CallStack(..))
 import System.Log.Logger (getLevel, getLogger, getRootLogger, Logger, logL, Priority(..))
 import Text.Printf (printf)
+
+-- type DropFn = (String, SrcLoc) -> Bool
+type DropFn = [(String, SrcLoc)] -> [(String, SrcLoc)]
 
 alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alog priority msg | priority >= WARNING = alogWithStack priority msg
@@ -55,7 +58,7 @@ alogWithStack priority msg = liftIO $ do
   l <- logger
   logL l priority (logString standardDrop msg <> "\n" <> prettyCallStack (locDrop' standardDrop callStack))
 
-alogDrop :: (MonadIO m, HasCallStack) => ((String, SrcLoc) -> Bool) -> Priority -> String -> m ()
+alogDrop :: (MonadIO m, HasCallStack) => DropFn -> Priority -> String -> m ()
 alogDrop fn priority msg = liftIO $ do
   -- time <- getCurrentTime
   l <- logger
@@ -74,13 +77,13 @@ logModule :: String
 logModule = "SeeReason.Log"
 #endif
 
-standardDrop :: HasCallStack => (String, SrcLoc) -> Bool
-standardDrop (_, SrcLoc {srcLocModule = m}) = isSuffixOf ".Log" m
+standardDrop :: HasCallStack => DropFn
+standardDrop = dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
 
 alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
 alogs priority msgs = alog priority (unwords msgs)
 
-logString  :: HasCallStack => ((String, SrcLoc) -> Bool) -> String -> String
+logString  :: HasCallStack => DropFn -> String -> String
 logString fn msg =
 #if defined(darwin_HOST_OS)
   take 2002 $
@@ -97,7 +100,7 @@ putLoc = liftIO (putStr (locDrop standardDrop <> " - "))
 
 -- | Get the portion of the stack before we entered this module.
 trimmedStack :: HasCallStack => [([Char], SrcLoc)]
-trimmedStack = dropWhile standardDrop (getCallStack callStack)
+trimmedStack = standardDrop (getCallStack callStack)
 
 -- | A logger based on the module name at the top of the stack.
 logger :: HasCallStack => IO Logger
@@ -108,7 +111,7 @@ logger =
 
 -- | Format the location of the top level of the call stack, after
 -- dropping matching stack frames.
-locDrop :: HasCallStack => ((String, SrcLoc) -> Bool) -> String
+locDrop :: HasCallStack => DropFn -> String
 locDrop fn =
   case getCallStack (locDrop' fn callStack) of
     [] -> "(no CallStack)"
@@ -116,11 +119,8 @@ locDrop fn =
     ((_, SrcLoc {..}) : (f, _) : _) -> srcLocModule <> "." <> f <> ":" <> show srcLocStartLine
 
 -- | Drop all matching frames from a 'CallStack'.
-locDrop' :: HasCallStack => ((String, SrcLoc) -> Bool) -> CallStack -> CallStack
-locDrop' _ EmptyCallStack = EmptyCallStack
-locDrop' fn (FreezeCallStack stack) = FreezeCallStack (locDrop' fn stack)
-locDrop' fn (PushCallStack name loc stack) | fn (name, loc) = locDrop' fn stack
-locDrop' fn (PushCallStack name loc stack) = PushCallStack name loc (locDrop' fn stack)
+locDrop' :: HasCallStack => DropFn -> CallStack -> CallStack
+locDrop' fn = fromCallSiteList . fn . getCallStack
 
 -- | Format the location of the nth level up in a call stack
 loc' :: CallStack -> Int -> Maybe String
