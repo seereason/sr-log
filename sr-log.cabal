@@ -1,5 +1,5 @@
 Name:           sr-log
-Version:        1.7
+Version:        1.8
 License:        BSD3
 Author:         David Fox, Clifford Beshers
 Category:       Unclassified
@@ -23,8 +23,10 @@ Library
   if !impl(ghcjs)
     Exposed-Modules: SeeReason.LogServer
     Build-Depends:
+      data-default,
       directory,
       process,
+      sr-cache,
       template-haskell,
       text
 

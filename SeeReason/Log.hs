@@ -9,6 +9,9 @@ module SeeReason.Log
   , alogWithStack
   , alogDrop
   , alogs
+  , LogState(..)
+  , alogG
+  , alogH
   , printLoc
   , putLoc
   , locDrop
@@ -24,11 +27,15 @@ module SeeReason.Log
   , Priority(..)
   ) where
 
-import Control.Lens((.=), ix, Lens', preview, to, use)
+import Control.Lens((.=), ix, Lens', non, preview, to, use, view)
 import Control.Monad.Except (when)
+import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState)
 import Control.Monad.Trans (liftIO, MonadIO)
 import Data.Bool (bool)
+import Data.Cache (HasDynamicCache, mayLens)
+import Data.Default (Default(def))
+import Data.Foldable
 import Data.List (intercalate, isSuffixOf)
 import Data.Maybe (fromMaybe)
 #if !MIN_VERSION_base(4,11,0)
@@ -38,6 +45,7 @@ import Data.Time (diffUTCTime, getCurrentTime, UTCTime)
 #if MIN_VERSION_time(1,9,0)
 import Data.Time.Format (formatTime, defaultTimeLocale)
 #endif
+import GHC.Generics (Generic)
 import GHC.Stack (CallStack, callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
 import GHC.Stack.Types (CallStack(..))
 import System.Log.Logger (getLevel, getLogger, getRootLogger, Logger, logL, Priority(..))
@@ -82,6 +90,34 @@ standardDrop = dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m
 
 alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
 alogs priority msgs = alog priority (unwords msgs)
+
+-- | Logger whose behavior is controlled by a record in the dynamic
+-- cache.
+alogH :: forall s m. (HasDynamicCache s, MonadState s m, MonadIO m, HasCallStack) => Priority -> String -> m ()
+alogH priority msg = do
+  LogState{..} <- use (mayLens @s @LogState . non def)
+  (case trace of False -> alog; True -> alogWithStack)
+    priority
+    (bool msg (ellipsis 200 msg) short)
+
+alogG :: forall s m. (HasDynamicCache s, MonadReader s m, MonadIO m, HasCallStack) => Priority -> String -> m ()
+alogG priority msg = do
+  LogState{..} <- view (mayLens @s @LogState . non def)
+  (case trace of False -> alog; True -> alogWithStack)
+    priority
+    (bool msg (ellipsis 200 msg) short)
+
+-- | Truncate a string and add an ellipsis.
+ellipsis n s = if Data.Foldable.length s > n + 3 then take n s <> "..." else s
+
+data LogState
+  = LogState
+    { trace :: Bool
+    , short :: Bool
+    } deriving (Eq, Show, Generic)
+
+instance Default LogState where
+  def = LogState {trace = False, short = True}
 
 logString  :: HasCallStack => DropFn -> String -> String
 logString fn msg =

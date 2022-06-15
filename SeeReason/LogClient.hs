@@ -32,8 +32,7 @@ setClientLoggingLevel name new = liftIO $ do
         ((case getLevel logger of
             Nothing -> "Setting";
             Just old -> "Changed") <>
-         (if name == rootLoggerName then "" else " logger " <> name) <>
-         " client logging level" <>
+         name <> " logging level" <>
          (case getLevel logger of
             Nothing -> ""
             Just old -> " from " <> show old) <>
