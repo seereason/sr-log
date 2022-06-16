@@ -16,17 +16,17 @@ Library
   GHC-Options: -Wall -Wredundant-constraints
   Build-Depends:
     base >= 4.9 && < 5,
+    data-default,
     hslogger,
     lens,
     mtl,
+    sr-cache,
     time
   if !impl(ghcjs)
     Exposed-Modules: SeeReason.LogServer
     Build-Depends:
-      data-default,
       directory,
       process,
-      sr-cache,
       template-haskell,
       text
 
