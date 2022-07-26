@@ -18,7 +18,7 @@ import System.Directory (doesFileExist)
 import System.Exit
 import System.IO (hPutStrLn, stderr)
 import System.Log.Handler.Syslog (openlog, Option(PID), Facility(..))
-import System.Log.Logger (Priority(..), getLevel, getLogger, logM, rootLoggerName, saveGlobalLogger, setHandlers, setLevel, updateGlobalLogger)
+import System.Log.Logger (clearLevel, getLevel, getLogger, logM, Priority(..), rootLoggerName, saveGlobalLogger, setHandlers, setLevel, updateGlobalLogger)
 import System.Process (readProcess)
 
   -- unwords [formatTimeCombined time, msg]
@@ -40,13 +40,13 @@ setupServerLogger facility lvl = do
   appLog <- openlog "appraisalscribe3" [PID] facility lvl
   updateGlobalLogger rootLoggerName (setLevel lvl . setHandlers [appLog])
 
-setServerLoggingLevel :: String -> Priority -> IO ()
+setServerLoggingLevel :: String -> Maybe Priority -> IO ()
 setServerLoggingLevel name new = do
   logger <- getLogger name
   case getLevel logger of
-    Just old | old == new -> pure ()
+    old | old == new -> pure ()
     _ -> do
-      saveGlobalLogger (setLevel new $ logger)
+      saveGlobalLogger (maybe clearLevel setLevel new $ logger)
       alog ALERT
         ((case getLevel logger of
             Nothing -> "Setting";
