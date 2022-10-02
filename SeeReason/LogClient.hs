@@ -28,7 +28,7 @@ setClientLoggingLevel name new = liftIO $ do
     Just old | old == new -> pure ()
     _ -> do
       saveGlobalLogger (setLevel new $ logger)
-      alog ALERT
+      alog INFO
         ((case getLevel logger of
             Nothing -> "Setting";
             Just old -> "Changed") <>
