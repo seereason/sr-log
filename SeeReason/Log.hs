@@ -18,6 +18,8 @@ module SeeReason.Log
   , standardDrop
   , loc'
   , locs
+  , srclocs
+  , srclocList
   , logString
     -- * Elapsed time
   , HasSavedTime(..)
@@ -36,19 +38,22 @@ import Data.Bool (bool)
 import Data.Cache (HasDynamicCache, mayLens)
 import Data.Default (Default(def))
 import Data.Foldable
-import Data.List (intercalate, isSuffixOf)
+import Data.List (intercalate, intersperse, isSuffixOf)
 import Data.Maybe (fromMaybe)
 #if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup (Semigroup((<>)))
 #endif
+import Data.String (IsString(fromString))
 import Data.Time (diffUTCTime, getCurrentTime, UTCTime)
 #if MIN_VERSION_time(1,9,0)
 import Data.Time.Format (formatTime, defaultTimeLocale)
 #endif
+-- import Extra.Orphans ({-instance Pretty SrcLoc-})
 import GHC.Generics (Generic)
 import GHC.Stack (CallStack, callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
 import GHC.Stack.Types (CallStack(..))
 import System.Log.Logger (getLevel, getLogger, getRootLogger, Logger, logL, Priority(..))
+import Text.PrettyPrint.HughesPJClass (prettyShow)
 import Text.Printf (printf)
 
 -- type DropFn = (String, SrcLoc) -> Bool
@@ -179,6 +184,17 @@ locs stack n =
         [ srcLocModule, ":"
         , show srcLocStartLine {-, ":"
         , show srcLocStartCol-} ]
+
+-- | Pretty print a CallStack even more compactly.
+srclocs :: (HasCallStack, IsString s, Monoid s) => CallStack -> s
+srclocs = mintercalate (fromString " →") . srclocList
+
+-- | List of more compactly pretty printed CallStack location
+srclocList :: (HasCallStack, IsString s) => CallStack -> [s]
+srclocList = fmap (fromString . {-prettyShow-}(\loc -> srcLocModule loc <> ":" <> show (srcLocStartLine loc)) . snd) . reverse . getCallStack
+
+mintercalate :: Monoid s => s -> [s] -> s
+mintercalate x xs = mconcat (intersperse x xs)
 
 class HasSavedTime s where savedTime :: Lens' s UTCTime
 instance HasSavedTime UTCTime where savedTime = id

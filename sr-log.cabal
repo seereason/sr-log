@@ -1,5 +1,5 @@
 Name:           sr-log
-Version:        1.9
+Version:        1.10
 License:        BSD3
 Author:         David Fox, Clifford Beshers
 Category:       Unclassified
@@ -20,6 +20,7 @@ Library
     hslogger,
     lens,
     mtl,
+    pretty,
     sr-cache,
     time
   if !impl(ghcjs)
