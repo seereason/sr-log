@@ -1,5 +1,5 @@
 Name:           sr-log
-Version:        1.10
+Version:        1.10.1
 License:        BSD3
 Author:         David Fox, Clifford Beshers
 Category:       Unclassified
@@ -16,11 +16,13 @@ Library
   GHC-Options: -Wall -Wredundant-constraints
   Build-Depends:
     base >= 4.9 && < 5,
+    cereal,
     data-default,
     hslogger,
     lens,
     mtl,
     pretty,
+    safecopy,
     sr-cache,
     time
   if !impl(ghcjs)

@@ -36,10 +36,13 @@ import Control.Monad.State (MonadState)
 import Control.Monad.Trans (liftIO, MonadIO)
 import Data.Bool (bool)
 import Data.Cache (HasDynamicCache, mayLens)
+import Data.Data (Data)
 import Data.Default (Default(def))
 import Data.Foldable
 import Data.List (intercalate, intersperse, isSuffixOf)
 import Data.Maybe (fromMaybe)
+import Data.Serialize (Serialize(get, put))
+import Data.SafeCopy (SafeCopy, safeGet, safePut)
 #if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup (Semigroup((<>)))
 #endif
@@ -48,6 +51,7 @@ import Data.Time (diffUTCTime, getCurrentTime, UTCTime)
 #if MIN_VERSION_time(1,9,0)
 import Data.Time.Format (formatTime, defaultTimeLocale)
 #endif
+import Data.Typeable (Typeable)
 -- import Extra.Orphans ({-instance Pretty SrcLoc-})
 import GHC.Generics (Generic)
 import GHC.Stack (CallStack, callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
@@ -119,7 +123,10 @@ data LogState
   = LogState
     { trace :: Bool
     , short :: Bool
-    } deriving (Eq, Show, Generic)
+    } deriving (Eq, Ord, Show, Generic, Data, Typeable)
+
+instance SafeCopy LogState
+instance Serialize LogState where get = safeGet; put = safePut
 
 instance Default LogState where
   def = LogState {trace = False, short = True}
@@ -187,6 +194,8 @@ locs stack n =
 
 -- | Pretty print a CallStack even more compactly.
 srclocs :: (HasCallStack, IsString s, Monoid s) => CallStack -> s
+-- The space before the angle brackets allows the console to add line
+-- breaks, no space after to make this formatting more consistent.
 srclocs = mintercalate (fromString " →") . srclocList
 
 -- | List of more compactly pretty printed CallStack location
