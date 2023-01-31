@@ -35,7 +35,7 @@ import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState)
 import Control.Monad.Trans (liftIO, MonadIO)
 import Data.Bool (bool)
-import Data.Cache (HasDynamicCache, mayLens)
+import Data.Cache (HasDynamicCache, maybeLens)
 import Data.Data (Data)
 import Data.Default (Default(def))
 import Data.Foldable
@@ -104,14 +104,14 @@ alogs priority msgs = alog priority (unwords msgs)
 -- cache.
 alogH :: forall s m. (HasDynamicCache s, MonadState s m, MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogH priority msg = do
-  LogState{..} <- use (mayLens @s @LogState . non def)
+  LogState{..} <- use (maybeLens @s @LogState . non def)
   (case trace of False -> alog; True -> alogWithStack)
     priority
     (bool msg (ellipsis 200 msg) short)
 
 alogG :: forall s m. (HasDynamicCache s, MonadReader s m, MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogG priority msg = do
-  LogState{..} <- view (mayLens @s @LogState . non def)
+  LogState{..} <- view (maybeLens @s @LogState . non def)
   (case trace of False -> alog; True -> alogWithStack)
     priority
     (bool msg (ellipsis 200 msg) short)
