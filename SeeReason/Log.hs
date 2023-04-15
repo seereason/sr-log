@@ -6,6 +6,7 @@
 module SeeReason.Log
   ( -- * Logging
     alog
+  , alog2
   , alogWithStack
   , alogDrop
   , alogs
@@ -16,6 +17,7 @@ module SeeReason.Log
   , putLoc
   , locDrop
   , standardDrop
+  , standardDrop2
   , loc'
   , locs
   , srclocs
@@ -61,7 +63,8 @@ import Text.PrettyPrint.HughesPJClass (prettyShow)
 import Text.Printf (printf)
 
 -- type DropFn = (String, SrcLoc) -> Bool
-type DropFn = [(String, SrcLoc)] -> [(String, SrcLoc)]
+type Locs = [(String, SrcLoc)]
+type DropFn = Locs -> Locs
 
 alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alog priority msg | priority >= WARNING = alogWithStack priority msg
@@ -69,6 +72,13 @@ alog priority msg = liftIO $ do
   -- time <- getCurrentTime
   l <- logger
   logL l priority (logString standardDrop msg)
+
+alog2 :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
+alog2 priority msg | priority >= WARNING = alogWithStack priority msg
+alog2 priority msg = liftIO $ do
+  -- time <- getCurrentTime
+  l <- logger
+  logL l priority (logString standardDrop2 msg)
 
 alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogWithStack priority msg = liftIO $ do
@@ -95,7 +105,10 @@ logModule = "SeeReason.Log"
 #endif
 
 standardDrop :: HasCallStack => DropFn
-standardDrop = dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
+standardDrop = take 2 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
+
+standardDrop2 :: HasCallStack => DropFn
+standardDrop2 = take 3 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
 
 alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
 alogs priority msgs = alog priority (unwords msgs)
@@ -105,14 +118,14 @@ alogs priority msgs = alog priority (unwords msgs)
 alogH :: forall s m. (HasDynamicCache s, MonadState s m, MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogH priority msg = do
   LogState{..} <- use (maybeLens @s @LogState . non def)
-  (case trace of False -> alog; True -> alogWithStack)
+  (case trace of False -> alog2; True -> alogWithStack)
     priority
     (bool msg (ellipsis 200 msg) short)
 
 alogG :: forall s m. (HasDynamicCache s, MonadReader s m, MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogG priority msg = do
   LogState{..} <- view (maybeLens @s @LogState . non def)
-  (case trace of False -> alog; True -> alogWithStack)
+  (case trace of False -> alog2; True -> alogWithStack)
     priority
     (bool msg (ellipsis 200 msg) short)
 
@@ -131,7 +144,7 @@ instance Serialize LogState where get = safeGet; put = safePut
 instance Default LogState where
   def = LogState {trace = False, short = True}
 
-logString  :: HasCallStack => DropFn -> String -> String
+logString :: HasCallStack => DropFn -> String -> String
 logString fn msg =
 #if defined(darwin_HOST_OS)
   take 2002 $
@@ -161,10 +174,16 @@ logger =
 -- dropping matching stack frames.
 locDrop :: HasCallStack => DropFn -> String
 locDrop fn =
-  case getCallStack (locDrop' fn callStack) of
-    [] -> "(no CallStack)"
-    [(_alog, SrcLoc {..})] -> srcLocModule <> ":" <> show srcLocStartLine
-    ((_, SrcLoc {..}) : (f, _) : _) -> srcLocModule <> "." <> f <> ":" <> show srcLocStartLine
+  showLocs (reverse (getCallStack (locDrop' fn callStack)))
+  where
+    showLocs :: [(String, SrcLoc)] -> String
+    showLocs [(f, _), (_, loc)] =
+      srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc)
+    showLocs ((_, loc) : more) =
+      srcLocModule loc <> ":" <> show (srcLocStartLine loc) <> " → " <>
+      showLocs more
+    showLocs [(_f, loc)] = srcLocModule loc <> ":" <> show (srcLocStartLine loc)
+    showLocs [] = "(no CallStack)"
 
 -- | Drop all matching frames from a 'CallStack'.
 locDrop' :: HasCallStack => DropFn -> CallStack -> CallStack
