@@ -105,7 +105,7 @@ logModule = "SeeReason.Log"
 #endif
 
 standardDrop :: HasCallStack => DropFn
-standardDrop = take 2 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
+standardDrop = dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
 
 standardDrop2 :: HasCallStack => DropFn
 standardDrop2 = take 3 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
