@@ -23,7 +23,7 @@ Library
     mtl,
     pretty,
     safecopy,
-    sr-cache >= 1.6,
+    sr-cache >= 1.8,
     time
   if !impl(ghcjs)
     Exposed-Modules: SeeReason.LogServer
