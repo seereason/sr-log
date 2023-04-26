@@ -1,6 +1,11 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE CPP, TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS -Wall #-}
 
 module SeeReason.Log
@@ -16,6 +21,7 @@ module SeeReason.Log
   , printLoc
   , putLoc
   , locDrop
+  , locDrop'
   , callSiteOnly
   , callSitePlus
   , fullStack
@@ -184,11 +190,16 @@ locDrop fn =
   case getCallStack (locDrop' fn callStack) of
     [] -> "(no CallStack)"
     [(f, loc)] -> srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc)
-    prs -> intercalate " ← " (showLocs prs)
+    ((_, loc) : more@((f, _) : _)) ->
+      -- Only the first location includes the function name
+      intercalate {-" ← "-} " <- "
+        (srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc) :
+         showLocs more)
+    -- prs -> intercalate " ← " (showLocs prs)
   where
     showLocs :: [(String, SrcLoc)] -> [String]
     showLocs ((_, loc) : more@((f, _) : _)) =
-      srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc) :
+      srcLocModule loc <> ":" <> show (srcLocStartLine loc) :
       showLocs more
     showLocs _ = []
 
