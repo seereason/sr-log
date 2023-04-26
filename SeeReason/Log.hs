@@ -192,7 +192,7 @@ locDrop fn =
     [(f, loc)] -> srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc)
     ((_, loc) : more@((f, _) : _)) ->
       -- Only the first location includes the function name
-      intercalate {-" ← "-} " <- "
+      intercalate " ← " {-" <- "-}
         (srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc) :
          showLocs more)
     -- prs -> intercalate " ← " (showLocs prs)
