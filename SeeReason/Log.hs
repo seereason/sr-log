@@ -16,8 +16,9 @@ module SeeReason.Log
   , printLoc
   , putLoc
   , locDrop
-  , standardDrop
-  , standardDrop2
+  , callSiteOnly
+  , callSitePlus
+  , fullStack
   , loc'
   , locs
   , srclocs
@@ -71,19 +72,19 @@ alog priority msg | priority >= WARNING = alogWithStack priority msg
 alog priority msg = liftIO $ do
   -- time <- getCurrentTime
   l <- logger
-  logL l priority (logString standardDrop msg)
+  logL l priority (logString callSiteOnly msg)
 
 alog2 :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alog2 priority msg | priority >= WARNING = alogWithStack priority msg
 alog2 priority msg = liftIO $ do
   -- time <- getCurrentTime
   l <- logger
-  logL l priority (logString standardDrop2 msg)
+  logL l priority (logString callSitePlus msg)
 
 alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogWithStack priority msg = liftIO $ do
   l <- logger
-  logL l priority (logString standardDrop msg <> "\n" <> prettyCallStack (locDrop' standardDrop callStack))
+  logL l priority (logString callSiteOnly msg <> "\n" <> prettyCallStack (locDrop' fullStack callStack))
 
 alogDrop :: (MonadIO m, HasCallStack) => DropFn -> Priority -> String -> m ()
 alogDrop fn priority msg = liftIO $ do
@@ -104,11 +105,17 @@ logModule :: String
 logModule = "SeeReason.Log"
 #endif
 
-standardDrop :: HasCallStack => DropFn
-standardDrop = dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
+-- | Display the function and module where the logger was called
+callSiteOnly :: HasCallStack => DropFn
+callSiteOnly = take 2 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
 
-standardDrop2 :: HasCallStack => DropFn
-standardDrop2 = take 3 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
+-- | Display one more stack level than 'callSiteOnly'
+callSitePlus :: HasCallStack => DropFn
+callSitePlus = take 3 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
+
+-- | Display the full call stack
+fullStack :: HasCallStack => DropFn
+fullStack = dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
 
 alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
 alogs priority msgs = alog priority (unwords msgs)
@@ -157,11 +164,11 @@ printLoc :: (Show a, HasCallStack, MonadIO m) => a -> m ()
 printLoc x = putLoc >> liftIO (print x)
 
 putLoc :: (HasCallStack, MonadIO m) => m ()
-putLoc = liftIO (putStr (locDrop standardDrop <> " - "))
+putLoc = liftIO (putStr (locDrop callSiteOnly <> " - "))
 
 -- | Get the portion of the stack before we entered this module.
 trimmedStack :: HasCallStack => [([Char], SrcLoc)]
-trimmedStack = standardDrop (getCallStack callStack)
+trimmedStack = callSiteOnly (getCallStack callStack)
 
 -- | A logger based on the module name at the top of the stack.
 logger :: HasCallStack => IO Logger
@@ -174,16 +181,16 @@ logger =
 -- dropping matching stack frames.
 locDrop :: HasCallStack => DropFn -> String
 locDrop fn =
-  showLocs (reverse (getCallStack (locDrop' fn callStack)))
+  case getCallStack (locDrop' fn callStack) of
+    [] -> "(no CallStack)"
+    [(f, loc)] -> srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc)
+    prs -> intercalate " ← " (showLocs prs)
   where
-    showLocs :: [(String, SrcLoc)] -> String
-    showLocs [(f, _), (_, loc)] =
-      srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc)
-    showLocs ((_, loc) : more) =
-      srcLocModule loc <> ":" <> show (srcLocStartLine loc) <> " → " <>
+    showLocs :: [(String, SrcLoc)] -> [String]
+    showLocs ((_, loc) : more@((f, _) : _)) =
+      srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc) :
       showLocs more
-    showLocs [(_f, loc)] = srcLocModule loc <> ":" <> show (srcLocStartLine loc)
-    showLocs [] = "(no CallStack)"
+    showLocs _ = []
 
 -- | Drop all matching frames from a 'CallStack'.
 locDrop' :: HasCallStack => DropFn -> CallStack -> CallStack
