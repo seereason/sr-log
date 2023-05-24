@@ -36,4 +36,4 @@ Library
   Default-Extensions: ConstraintKinds, CPP, DataKinds, DeriveDataTypeable, DeriveFunctor, DeriveGeneric
   Default-Extensions: FlexibleInstances, FlexibleContexts, MultiParamTypeClasses, RankNTypes
   Default-Extensions: ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies
-  Exposed-modules: SeeReason.Log SeeReason.LogClient SeeReason.LogFormat
+  Exposed-modules: SeeReason.Log SeeReason.LogClient SeeReason.LogFormat SeeReason.CallStack

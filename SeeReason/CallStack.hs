@@ -1,0 +1,191 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS -Wall #-}
+
+module SeeReason.Log
+  ( -- * Logging
+  ) where
+
+import Control.Lens((.=), ix, Lens', non, preview, to, use, view)
+import Control.Monad.Except (when)
+import Control.Monad.Reader (MonadReader)
+import Control.Monad.State (MonadState)
+import Control.Monad.Trans (liftIO, MonadIO)
+import Data.Bool (bool)
+import Data.Cache (HasDynamicCache, maybeLens)
+import Data.Data (Data)
+import Data.Default (Default(def))
+import Data.Foldable
+import Data.List (intercalate, intersperse, isSuffixOf)
+import Data.Maybe (fromMaybe)
+import Data.Serialize (Serialize(get, put))
+import Data.SafeCopy (SafeCopy, safeGet, safePut)
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup (Semigroup((<>)))
+#endif
+import Data.String (IsString(fromString))
+import Data.Time (diffUTCTime, getCurrentTime, UTCTime)
+#if MIN_VERSION_time(1,9,0)
+import Data.Time.Format (formatTime, defaultTimeLocale)
+#endif
+import Data.Typeable (Typeable)
+-- import Extra.Orphans ({-instance Pretty SrcLoc-})
+import GHC.Generics (Generic)
+import GHC.Stack (CallStack, callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
+import GHC.Stack.Types (CallStack(..))
+import System.Log.Logger (getLevel, getLogger, getRootLogger, Logger, logL, Priority(..))
+import Text.PrettyPrint.HughesPJClass (prettyShow)
+import Text.Printf (printf)
+
+-- type DropFn = (String, SrcLoc) -> Bool
+type Locs = [(String, SrcLoc)]
+type DropFn = Locs -> Locs
+
+alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
+alog priority msg | priority >= WARNING = alogWithStack priority msg
+alog priority msg = liftIO $ do
+  -- time <- getCurrentTime
+  l <- logger
+  logL l priority (logString callSiteOnly msg)
+
+alog2 :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
+alog2 priority msg | priority >= WARNING = alogWithStack priority msg
+alog2 priority msg = liftIO $ do
+  -- time <- getCurrentTime
+  l <- logger
+  logL l priority (logString callSitePlus msg)
+
+alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
+alogWithStack priority msg = liftIO $ do
+  l <- logger
+  logL l priority (logString callSiteOnly msg <> "\n" <> prettyCallStack (locDrop' fullStack callStack))
+
+alogDrop :: (MonadIO m, HasCallStack) => DropFn -> Priority -> String -> m ()
+alogDrop fn priority msg = liftIO $ do
+  -- time <- getCurrentTime
+  l <- logger
+  logL l priority (logString fn msg)
+
+#if 0
+logModule :: HasCallStack => String
+-- Unfortunately(?) the call stack is not available inside a template
+-- haskell splice.
+logModule =
+  $(case getCallStack callStack of
+       [] -> error "callStack failed"
+       ((_, SrcLoc {srcLocModule = m}) : _) -> lift =<< litE (stringL m))
+#else
+logModule :: String
+logModule = "SeeReason.Log"
+#endif
+
+-- | Display the function and module where the logger was called
+callSiteOnly :: HasCallStack => DropFn
+callSiteOnly = take 2 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
+
+-- | Display one more stack level than 'callSiteOnly'
+callSitePlus :: HasCallStack => DropFn
+callSitePlus = take 3 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
+
+-- | Display the full call stack
+fullStack :: HasCallStack => DropFn
+fullStack = dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
+
+-- | Get the portion of the stack before we entered this module.
+trimStack :: CallStack -> [([Char], SrcLoc)]
+trimStack = callSiteOnly (getCallStack callStack)
+
+-- | Format the location of the top level of the call stack, after
+-- dropping matching stack frames.
+locDrop :: HasCallStack => DropFn -> String
+locDrop fn =
+  case getCallStack (locDrop' fn callStack) of
+    [] -> "(no CallStack)"
+    [(f, loc)] -> srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc)
+    ((_, loc) : more@((f, _) : _)) ->
+      -- Only the first location includes the function name
+      intercalate " ← " {-" <- "-}
+        (srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc) :
+         showLocs more)
+    -- prs -> intercalate " ← " (showLocs prs)
+  where
+    showLocs :: [(String, SrcLoc)] -> [String]
+    showLocs ((_, loc) : more@((f, _) : _)) =
+      srcLocModule loc <> ":" <> show (srcLocStartLine loc) :
+      showLocs more
+    showLocs _ = []
+
+-- | Drop all matching frames from a 'CallStack'.
+locDrop' :: HasCallStack => DropFn -> CallStack -> CallStack
+locDrop' fn = fromCallSiteList . fn . getCallStack
+
+-- | Format the location of the nth level up in a call stack
+loc' :: CallStack -> Int -> Maybe String
+loc' stack n =
+  preview (to getCallStack . ix n . to prettyLoc) stack
+  where
+    prettyLoc (_s, SrcLoc {..}) =
+      foldr (++) ""
+        [ srcLocModule, ":"
+        , show srcLocStartLine {-, ":"
+        , show srcLocStartCol-} ]
+
+-- | Format the full call stack starting at the nth level up.
+locs :: CallStack -> Int -> String
+locs stack n =
+  (intercalate " -> " . fmap prettyLoc . drop n . getCallStack) stack
+  where
+    prettyLoc (_s, SrcLoc {..}) =
+      foldr (++) ""
+        [ srcLocModule, ":"
+        , show srcLocStartLine {-, ":"
+        , show srcLocStartCol-} ]
+
+-- | Pretty print a CallStack even more compactly.
+srclocs :: (HasCallStack, IsString s, Monoid s) => CallStack -> s
+-- The space before the angle brackets allows the console to add line
+-- breaks, no space after to make this formatting more consistent.
+srclocs = mintercalate (fromString " →") . srclocList
+
+-- | List of more compactly pretty printed CallStack location
+srclocList :: (HasCallStack, IsString s) => CallStack -> [s]
+srclocList = fmap (fromString . {-prettyShow-}(\loc -> srcLocModule loc <> ":" <> show (srcLocStartLine loc)) . snd) . reverse . getCallStack
+
+mintercalate :: Monoid s => s -> [s] -> s
+mintercalate x xs = mconcat (intersperse x xs)
+
+class HasSavedTime s where savedTime :: Lens' s UTCTime
+instance HasSavedTime UTCTime where savedTime = id
+
+alog' :: forall s m. (MonadIO m, HasSavedTime s, HasCallStack, MonadState s m) => Priority -> String -> m ()
+alog' priority msg = do
+  level <- getLevel <$> liftIO (maybe getRootLogger getLogger (loc' callStack 1))
+  prev <- use savedTime
+  time <- liftIO getCurrentTime
+  l <- liftIO logger
+  when (level <= Just priority) (savedTime .= time)
+  liftIO $
+    logL l priority $
+      logString' prev time priority msg
+
+logString'  :: UTCTime -> UTCTime -> Priority -> String -> String
+logString' prev time priority msg =
+#if defined(darwin_HOST_OS)
+  take 2002 $
+#else
+  take 60000 $
+#endif
+    unwords $ [timestring, fromMaybe "???" (loc' callStack 1), "-", msg] <> bool [] ["(" <> show priority <> ")"] (priority == DEBUG)
+    where timestring =
+#if MIN_VERSION_time(1,9,0)
+            formatTime defaultTimeLocale "%T%4Q"
+#else
+            (("elapsed: " <>) . (printf "%.04f" :: Double -> String) . fromRational . toRational)
+#endif
+              (diffUTCTime time prev)
