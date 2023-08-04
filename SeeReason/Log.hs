@@ -66,37 +66,30 @@ import GHC.Generics (Generic)
 import GHC.Stack (CallStack, callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
 import GHC.Stack.Types (CallStack(..))
 import System.Log.Logger (getLevel, getLogger, getRootLogger, Logger, logL, Priority(..))
-import Text.PrettyPrint.HughesPJClass (prettyShow)
+import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow)
 import Text.Printf (printf)
 
 -- type DropFn = (String, SrcLoc) -> Bool
 type Locs = [(String, SrcLoc)]
 type DropFn = Locs -> Locs
 
-alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
-alog priority msg | priority >= WARNING = alogWithStack priority msg
-alog priority msg = liftIO $ do
-  -- time <- getCurrentTime
-  l <- logger
-  logL l priority (logString callSiteOnly msg)
-
-alog2 :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
-alog2 priority msg | priority >= WARNING = alogWithStack priority msg
-alog2 priority msg = liftIO $ do
-  -- time <- getCurrentTime
-  l <- logger
-  logL l priority (logString callSitePlus msg)
-
-alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
-alogWithStack priority msg = liftIO $ do
-  l <- logger
-  logL l priority (logString callSiteOnly msg <> "\n" <> prettyCallStack (locDrop' fullStack callStack))
-
-alogDrop :: (MonadIO m, HasCallStack) => DropFn -> Priority -> String -> m ()
+alogDrop :: (MonadIO m, HasCallStack) => (Locs -> Locs) -> Priority -> String -> m ()
 alogDrop fn priority msg = liftIO $ do
   -- time <- getCurrentTime
   l <- logger
   logL l priority (logString fn msg)
+
+alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
+alog priority msg | priority >= WARNING = alogWithStack priority msg
+alog priority msg = alogDrop callSiteOnly priority msg
+
+alog2 :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
+alog2 priority msg | priority >= WARNING = alogWithStack priority msg
+alog2 priority msg = alogDrop callSitePlus priority msg
+
+alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
+alogWithStack priority msg =
+  alogDrop callSiteOnly priority (msg <> "\n" <> prettyCallStack (locDrop' fullStack callStack))
 
 #if 0
 logModule :: HasCallStack => String
@@ -112,15 +105,15 @@ logModule = "SeeReason.Log"
 #endif
 
 -- | Display the function and module where the logger was called
-callSiteOnly :: HasCallStack => DropFn
+callSiteOnly :: HasCallStack => (Locs -> Locs)
 callSiteOnly = take 2 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
 
 -- | Display one more stack level than 'callSiteOnly'
-callSitePlus :: HasCallStack => DropFn
+callSitePlus :: HasCallStack => (Locs -> Locs)
 callSitePlus = take 3 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
 
 -- | Display the full call stack
-fullStack :: HasCallStack => DropFn
+fullStack :: HasCallStack => (Locs -> Locs)
 fullStack = dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
 
 alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
@@ -157,7 +150,7 @@ instance Serialize LogState where get = safeGet; put = safePut
 instance Default LogState where
   def = LogState {trace = False, short = True}
 
-logString :: HasCallStack => DropFn -> String -> String
+logString :: HasCallStack => (Locs -> Locs) -> String -> String
 logString fn msg =
 #if defined(darwin_HOST_OS)
   take 2002 $
@@ -185,7 +178,7 @@ logger =
 
 -- | Format the location of the top level of the call stack, after
 -- dropping matching stack frames.
-locDrop :: HasCallStack => DropFn -> String
+locDrop :: HasCallStack => (Locs -> Locs) -> String
 locDrop fn =
   case getCallStack (locDrop' fn callStack) of
     [] -> "(no CallStack)"
@@ -204,7 +197,7 @@ locDrop fn =
     showLocs _ = []
 
 -- | Drop all matching frames from a 'CallStack'.
-locDrop' :: HasCallStack => DropFn -> CallStack -> CallStack
+locDrop' :: HasCallStack => (Locs -> Locs) -> CallStack -> CallStack
 locDrop' fn = fromCallSiteList . fn . getCallStack
 
 -- | Format the location of the nth level up in a call stack
@@ -235,9 +228,13 @@ srclocs :: (HasCallStack, IsString s, Monoid s) => CallStack -> s
 -- breaks, no space after to make this formatting more consistent.
 srclocs = mintercalate (fromString " →") . srclocList
 
+-- for sr-log?
+srcloc :: (HasCallStack, IsString s, Pretty SrcLoc) => s
+srcloc = fromString . prettyShow . snd . head . getCallStack $ callStack
+
 -- | List of more compactly pretty printed CallStack location
 srclocList :: (HasCallStack, IsString s) => CallStack -> [s]
-srclocList = fmap (fromString . {-prettyShow-}(\loc -> srcLocModule loc <> ":" <> show (srcLocStartLine loc)) . snd) . reverse . getCallStack
+srclocList = fmap (fromString . (\loc -> srcLocModule loc <> ":" <> show (srcLocStartLine loc)) . snd) . reverse . getCallStack
 
 mintercalate :: Monoid s => s -> [s] -> s
 mintercalate x xs = mconcat (intersperse x xs)
