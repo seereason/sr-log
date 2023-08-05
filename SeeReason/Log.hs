@@ -126,14 +126,14 @@ alogH priority msg = do
   LogState{..} <- use (maybeLens @s @LogState . non def)
   (case trace of False -> alog2; True -> alogWithStack)
     priority
-    (bool msg (ellipsis 200 msg) short)
+    (bool msg (ellipsis 1000 msg) short)
 
 alogG :: forall s m. (HasDynamicCache s, MonadReader s m, MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogG priority msg = do
   LogState{..} <- view (maybeLens @s @LogState . non def)
   (case trace of False -> alog2; True -> alogWithStack)
     priority
-    (bool msg (ellipsis 200 msg) short)
+    (bool msg (ellipsis 1000 msg) short)
 
 -- | Truncate a string and add an ellipsis.
 ellipsis n s = if Data.Foldable.length s > n + 3 then take n s <> "..." else s
