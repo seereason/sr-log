@@ -71,7 +71,8 @@ import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow)
 import Text.Printf (printf)
 
 -- type DropFn = (String, SrcLoc) -> Bool
-type Locs = [(String, SrcLoc)]
+type FunctionName = String
+type Locs = [(FunctionName, SrcLoc)]
 type DropFn = Locs -> Locs
 
 alogDrop :: (MonadIO m, HasCallStack) => (Locs -> Locs) -> Priority -> String -> m ()
