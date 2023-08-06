@@ -49,7 +49,7 @@ import Data.Cache (HasDynamicCache, maybeLens)
 import Data.Data (Data)
 import Data.Default (Default(def))
 import Data.Foldable
-import Data.List (intercalate, intersperse, isSuffixOf)
+import Data.List (intercalate, intersperse, isPrefixOf, isSuffixOf)
 import Data.Maybe (fromMaybe)
 import Data.Serialize (Serialize(get, put))
 import Data.SafeCopy (SafeCopy, safeGet, safePut)
@@ -91,7 +91,15 @@ alog2 priority msg = alogDrop callSitePlus priority msg
 
 alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogWithStack priority msg =
-  alogDrop callSiteOnly priority (msg <> "\n" <> prettyCallStack (locDrop' fullStack callStack))
+  alogDrop callSiteOnly priority (msg <> "\n" <> prettyCallStack (locDrop' id callStack))
+
+-- | Display the function and module where the logger was called
+callSiteOnly :: HasCallStack => (Locs -> Locs)
+callSiteOnly = take 2
+
+-- | Display one more stack level than 'callSiteOnly'
+callSitePlus :: HasCallStack => (Locs -> Locs)
+callSitePlus = take 3
 
 #if 0
 logModule :: HasCallStack => String
@@ -105,14 +113,6 @@ logModule =
 logModule :: String
 logModule = "SeeReason.Log"
 #endif
-
--- | Display the function and module where the logger was called
-callSiteOnly :: HasCallStack => (Locs -> Locs)
-callSiteOnly = take 2 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
-
--- | Display one more stack level than 'callSiteOnly'
-callSitePlus :: HasCallStack => (Locs -> Locs)
-callSitePlus = take 3 . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
 
 -- | Display the full call stack
 fullStack :: HasCallStack => (Locs -> Locs)
@@ -200,7 +200,11 @@ locDrop fn =
 
 -- | Drop all matching frames from a 'CallStack'.
 locDrop' :: HasCallStack => (Locs -> Locs) -> CallStack -> CallStack
-locDrop' fn = fromCallSiteList . fn . getCallStack
+locDrop' fn =
+  fromCallSiteList .
+  fn .
+  dropWhile (isPrefixOf "SeeReason.Log" . srcLocModule . snd) .
+  getCallStack
 
 -- | Format the location of the nth level up in a call stack
 loc' :: CallStack -> Int -> Maybe String

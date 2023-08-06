@@ -19,7 +19,13 @@ SeeReason.Test2.f4:26 - alog
 
 f4 :: HasCallStack => IO ()
 f4 = do
-  putStrLn (logString callSiteOnly "alogWithStack" <> "\n" <> prettyCallStack (locDrop' fullStack callStack))
+  alogWithStack ALERT "alogWithStack"
+  alog ALERT "alog"
+  alogDrop id ALERT "alogDrop id"
+  alogDrop (take 5) ALERT "alogDrop (take 5)"
+  alogDrop (drop 2) ALERT "alogDrop (drop 2)"
+  putStrLn "---------------------"
+  putStrLn (logString (take 2) "alogWithStack" <> "\n" <> prettyCallStack (locDrop' fullStack callStack))
   putStrLn (logString fullStack "full")
-  putStrLn (logString callSitePlus "alog2")
-  putStrLn (logString callSiteOnly "alog")
+  putStrLn (logString (take 3) "alog2")
+  putStrLn (logString (take 2) "alog")
