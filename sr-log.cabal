@@ -1,5 +1,5 @@
 Name:           sr-log
-Version:        1.13
+Version:        1.14
 License:        BSD3
 Author:         David Fox, Clifford Beshers
 Category:       Unclassified
@@ -36,4 +36,4 @@ Library
   Default-Extensions: ConstraintKinds, CPP, DataKinds, DeriveDataTypeable, DeriveFunctor, DeriveGeneric
   Default-Extensions: FlexibleInstances, FlexibleContexts, MultiParamTypeClasses, RankNTypes
   Default-Extensions: ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies
-  Exposed-modules: SeeReason.Log SeeReason.LogClient SeeReason.LogFormat
+  Exposed-modules: SeeReason.Log SeeReason.LogPure SeeReason.LogClient SeeReason.LogFormat
