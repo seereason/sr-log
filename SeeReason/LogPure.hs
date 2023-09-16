@@ -124,12 +124,18 @@ compactStack ((_, loc) : more@((f, _) : _)) =
 
 logString :: HasCallStack => (Locs -> Locs) -> String -> String
 logString fn msg =
+  pre <> take (lim - len) msg <> suf
+  where
+    len = length pre + length suf
+    pre = compactStack (take 2 locs) <> " - "
+    suf = if length locs > 2 then " (" <> compactStack locs <> ")" else ""
+    locs = fn getStack
+    lim =
 #if defined(darwin_HOST_OS)
-  take 2002 $
+          2002
 #else
-  take 60000 $
+          60000
 #endif
-  locDrop fn <> " - " <> msg
 
 logStringOld  :: UTCTime -> UTCTime -> Priority -> String -> String
 logStringOld prev time priority msg =
