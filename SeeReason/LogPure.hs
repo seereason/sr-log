@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -84,12 +85,12 @@ srclocList :: (HasCallStack, IsString s) => CallStack -> [s]
 srclocList = fmap (fromString . srcloc . snd) . reverse . getCallStack
 
 -- | Compactly format a source location
-srcloc :: SrcLoc -> String
-srcloc loc = srcLocModule loc <> ":" <> show (srcLocStartLine loc)
+srcloc :: (IsString s, Semigroup s) => SrcLoc -> s
+srcloc loc = fromString (srcLocModule loc) <> ":" <> fromString (show (srcLocStartLine loc))
 
 -- | Compactly format a source location with a function name
-srcfunloc :: String -> SrcLoc -> String
-srcfunloc f loc = srcLocModule loc <> "." <> f <> ":" <> show (srcLocStartLine loc)
+srcfunloc :: (IsString s, Semigroup s) => s -> SrcLoc -> s
+srcfunloc f loc = fromString (srcLocModule loc) <> "." <> f <> ":" <> fromString (show (srcLocStartLine loc))
 
 type FunctionName = String
 type Locs = [(FunctionName, SrcLoc)]
@@ -111,14 +112,14 @@ locDrop :: HasCallStack => (Locs -> Locs) -> String
 locDrop fn = compactStack (fn getStack)
 {-# DEPRECATED locDrop "Use compactStack (fn getStack)" #-}
 
-compactStack :: HasCallStack => Locs -> String
+compactStack :: forall s. (IsString s, Monoid s, HasCallStack) => Locs -> s
 compactStack [] = "(no CallStack)"
-compactStack [(f, loc)] = srcfunloc f loc
+compactStack [(f, loc)] = srcfunloc (fromString f) loc
 compactStack ((_, loc) : more@((f, _) : _)) =
   -- Only the first location includes the function name.
-  intercalate " ← " {-" <- "-} (srcfunloc f loc : showLocs more)
+  mconcat (intersperse (" ← " :: s) {-" <- "-} (srcfunloc (fromString f) loc : showLocs more))
   where
-    showLocs :: [(String, SrcLoc)] -> [String]
+    showLocs :: [(String, SrcLoc)] -> [s]
     showLocs ((_, loc) : more@(_ : _)) = srcloc loc : showLocs more
     showLocs _ = []
 
