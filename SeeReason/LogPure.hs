@@ -21,7 +21,7 @@ module SeeReason.LogPure
   , locs
   -- * Compact stack formatting
   , srcloc
-  , srcfunloc
+  -- , srcfunloc
   , srclocList
   , srclocs
   , compactStack
@@ -89,8 +89,8 @@ srcloc :: (IsString s, Semigroup s) => SrcLoc -> s
 srcloc loc = fromString (srcLocModule loc) <> ":" <> fromString (show (srcLocStartLine loc))
 
 -- | Compactly format a source location with a function name
-srcfunloc :: (IsString s, Semigroup s) => s -> SrcLoc -> s
-srcfunloc f loc = fromString (srcLocModule loc) <> "." <> f <> ":" <> fromString (show (srcLocStartLine loc))
+-- srcfunloc :: (IsString s, Semigroup s) => SrcLoc -> s -> s
+-- srcfunloc loc f = fromString (srcLocModule loc) <> "." <> f <> ":" <> fromString (show (srcLocStartLine loc))
 
 type FunctionName = String
 type Locs = [(FunctionName, SrcLoc)]
@@ -114,11 +114,14 @@ locDrop fn = compactStack (fn getStack)
 
 compactStack :: forall s. (IsString s, Monoid s, HasCallStack) => Locs -> s
 compactStack [] = "(no CallStack)"
-compactStack [(f, loc)] = srcfunloc (fromString f) loc
-compactStack ((_, loc) : more@((f, _) : _)) =
-  -- Only the first location includes the function name.
-  mconcat (intersperse (" ← " :: s) {-" <- "-}
-            (srcfunloc (fromString f) loc : fmap (srcloc . snd) more))
+compactStack [(callee, loc)] = fromString callee <> " ← " <> srcloc loc
+compactStack [(_, loc), (caller, _)] = srcloc loc <> "." <> fromString caller
+compactStack ((callee, loc) : more@((caller, _) : _)) =
+  mconcat (intersperse (" ← " :: s)
+            (-- fromString callee :
+             fromString (srcLocModule loc) <> "." <> fromString caller <> ":" <>
+             fromString (show (srcLocStartLine loc)) :
+             fmap (srcloc . snd) more))
 
 logString :: HasCallStack => (Locs -> Locs) -> String -> String
 logString fn msg =

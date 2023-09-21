@@ -127,7 +127,7 @@ logger =
   where
 
 trimmedStack :: HasCallStack => [([Char], SrcLoc)]
-trimmedStack = (take 2) (getCallStack callStack)
+trimmedStack = take 2 (getCallStack callStack)
 
 class HasSavedTime s where savedTime :: Lens' s UTCTime
 instance HasSavedTime UTCTime where savedTime = id
