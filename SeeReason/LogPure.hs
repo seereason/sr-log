@@ -121,7 +121,8 @@ compactStack ((_, loc) : more@((f, _) : _)) =
   where
     showLocs :: [(String, SrcLoc)] -> [s]
     showLocs ((_, loc) : more@(_ : _)) = srcloc loc : showLocs more
-    showLocs _ = []
+    showLocs [(f, loc)] = [srcloc loc]
+    showLocs [] = []
 
 logString :: HasCallStack => (Locs -> Locs) -> String -> String
 logString fn msg =
