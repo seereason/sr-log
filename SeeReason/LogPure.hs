@@ -117,12 +117,8 @@ compactStack [] = "(no CallStack)"
 compactStack [(f, loc)] = srcfunloc (fromString f) loc
 compactStack ((_, loc) : more@((f, _) : _)) =
   -- Only the first location includes the function name.
-  mconcat (intersperse (" ← " :: s) {-" <- "-} (srcfunloc (fromString f) loc : showLocs more))
-  where
-    showLocs :: [(String, SrcLoc)] -> [s]
-    showLocs ((_, loc) : more@(_ : _)) = srcloc loc : showLocs more
-    showLocs [(f, loc)] = [srcloc loc]
-    showLocs [] = []
+  mconcat (intersperse (" ← " :: s) {-" <- "-}
+            (srcfunloc (fromString f) loc : fmap (srcloc . snd) more))
 
 logString :: HasCallStack => (Locs -> Locs) -> String -> String
 logString fn msg =
