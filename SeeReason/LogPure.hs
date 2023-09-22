@@ -21,7 +21,9 @@ module SeeReason.LogPure
   , locs
   -- * Compact stack formatting
   , srcloc
-  -- , srcfunloc
+  , srcloccol
+  , srcfunloc
+  , srcfunloccol
   , srclocList
   , srclocs
   , compactStack
@@ -89,11 +91,17 @@ srcloc :: (IsString s, Semigroup s) => SrcLoc -> s
 srcloc loc = fromString (srcLocModule loc) <> ":" <> fromString (show (srcLocStartLine loc))
 
 -- | Compactly format a source location with a function name
--- srcfunloc :: (IsString s, Semigroup s) => SrcLoc -> s -> s
--- srcfunloc loc f = fromString (srcLocModule loc) <> "." <> f <> ":" <> fromString (show (srcLocStartLine loc))
+srcfunloc :: (IsString s, Semigroup s) => SrcLoc -> s -> s
+srcfunloc loc f = fromString (srcLocModule loc) <> "." <> f <> ":" <> fromString (show (srcLocStartLine loc))
 
-type FunctionName = String
-type Locs = [(FunctionName, SrcLoc)]
+-- | With start column
+srcloccol :: (HasCallStack, IsString s, Semigroup s) => SrcLoc -> s
+srcloccol loc = srcloc loc <> ":" <> fromString (show (srcLocStartCol loc))
+
+srcfunloccol :: (IsString s, Semigroup s) => SrcLoc -> s -> s
+srcfunloccol loc f = srcfunloc loc f <> ":" <> fromString (show (srcLocStartLine loc))
+
+type Locs = [(String, SrcLoc)]
 
 dropLogPackageFrames :: [(String, SrcLoc)] -> [(String, SrcLoc)]
 dropLogPackageFrames = dropWhile (isPrefixOf "SeeReason.Log" . srcLocModule . snd)
@@ -108,22 +116,28 @@ getStack = dropLogPackageFrames $ getCallStack callStack
 
 -- | Build the prefix of a log message, after applying a function to
 -- the call stack.
-locDrop :: HasCallStack => (Locs -> Locs) -> String
+locDrop :: HasCallStack => ([(String, SrcLoc)] -> [(String, SrcLoc)]) -> String
 locDrop fn = compactStack (fn getStack)
 {-# DEPRECATED locDrop "Use compactStack (fn getStack)" #-}
 
-compactStack :: forall s. (IsString s, Monoid s, HasCallStack) => Locs -> s
+compactStack :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> s
 compactStack [] = "(no CallStack)"
-compactStack [(callee, loc)] = fromString callee <> " ← " <> srcloc loc
-compactStack [(_, loc), (caller, _)] = srcloc loc <> "." <> fromString caller
+compactStack [(callee, loc)] = fromString callee <> " ← " <> srcloccol loc
+compactStack [(_, loc), (caller, _)] = srcloccol loc <> "." <> fromString caller
 compactStack ((callee, loc) : more@((caller, _) : _)) =
   mconcat (intersperse (" ← " :: s)
             (-- fromString callee :
-             fromString (srcLocModule loc) <> "." <> fromString caller <> ":" <>
-             fromString (show (srcLocStartLine loc)) :
-             fmap (srcloc . snd) more))
+             srcfunloc loc (fromString caller) :
+             stacktail (fmap snd more)))
+  where
+    stacktail :: [SrcLoc] -> [s]
+    stacktail [] = []
+    -- Include the column number of the last item, it may help to
+    -- figure out which caller is missing the HasCallStack constraint.
+    stacktail [loc] = [srcloccol loc]
+    stacktail (loc : more) = srcloc loc : stacktail more
 
-logString :: HasCallStack => (Locs -> Locs) -> String -> String
+logString :: HasCallStack => ([(String, SrcLoc)] -> [(String, SrcLoc)]) -> String -> String
 logString fn msg =
   pre <> take (lim - len) msg <> suf
   where
