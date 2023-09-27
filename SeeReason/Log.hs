@@ -17,8 +17,8 @@ module SeeReason.Log
   , alogDrop
   , alogs
   , LogState(..)
-  , alogG
-  , alogH
+  -- , alogG
+  -- , alogH
   , printLoc
   , putLoc
     -- * Elapsed time
@@ -34,7 +34,6 @@ import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState)
 import Control.Monad.Trans (liftIO, MonadIO)
 import Data.Bool (bool)
-import Data.Cache (HasDynamicCache, maybeLens)
 import Data.Data (Data)
 import Data.Default (Default(def))
 import Data.Foldable
@@ -77,22 +76,6 @@ alogWithStack priority msg =
 
 alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
 alogs priority msgs = alog priority (unwords msgs)
-
--- | Logger whose behavior is controlled by a record in the dynamic
--- cache.
-alogH :: forall s m. (HasDynamicCache s, MonadState s m, MonadIO m, HasCallStack) => Priority -> String -> m ()
-alogH priority msg = do
-  LogState{..} <- use (maybeLens @s @LogState . non def)
-  (case trace of False -> alog2; True -> alogWithStack)
-    priority
-    (bool msg (ellipsis 1000 msg) short)
-
-alogG :: forall s m. (HasDynamicCache s, MonadReader s m, MonadIO m, HasCallStack) => Priority -> String -> m ()
-alogG priority msg = do
-  LogState{..} <- view (maybeLens @s @LogState . non def)
-  (case trace of False -> alog2; True -> alogWithStack)
-    priority
-    (bool msg (ellipsis 1000 msg) short)
 
 -- | Truncate a string and add an ellipsis.
 ellipsis :: Int -> String -> String

@@ -1,5 +1,5 @@
 Name:           sr-log
-Version:        1.14
+Version:        1.15
 License:        BSD3
 Author:         David Fox, Clifford Beshers
 Category:       Unclassified
@@ -23,7 +23,6 @@ Library
     mtl,
     pretty,
     safecopy,
-    sr-cache >= 1.8,
     time
   if !impl(ghcjs)
     Exposed-Modules: SeeReason.LogServer
