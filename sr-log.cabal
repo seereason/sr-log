@@ -25,6 +25,7 @@ Library
     pretty,
     safecopy,
     time
+  HS-Source-Dirs: src
   if !impl(ghcjs)
     Exposed-Modules: SeeReason.LogServer
     Build-Depends:
@@ -37,3 +38,10 @@ Library
   Default-Extensions: FlexibleInstances, FlexibleContexts, MultiParamTypeClasses, RankNTypes
   Default-Extensions: ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies
   Exposed-modules: SeeReason.Log SeeReason.LogPure SeeReason.LogClient SeeReason.LogFormat SeeReason.SrcLoc
+
+test-suite logtests
+  default-language: Haskell2010
+  type: exitcode-stdio-1.0
+  main-is: Tests.hs
+  build-depends: base, HUnit, lens, sr-log
+
