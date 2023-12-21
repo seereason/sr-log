@@ -28,12 +28,10 @@ module SeeReason.Log
   , Priority(..)
   ) where
 
-import Control.Lens((.=), Lens', non, use, view)
+import Control.Lens((.=), Lens', use)
 import Control.Monad.Except (when)
-import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState)
 import Control.Monad.Trans (liftIO, MonadIO)
-import Data.Bool (bool)
 import Data.Data (Data)
 import Data.Default (Default(def))
 import Data.Foldable
@@ -51,6 +49,7 @@ import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import GHC.Stack (callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
 import SeeReason.LogPure
+import SeeReason.SrcLoc
 import System.Log.Logger (getLevel, getLogger, getRootLogger, Logger, logL, Priority(..))
 
 type FunctionName = String
@@ -72,7 +71,7 @@ alog2 priority msg = alogDrop (take 3) priority msg
 
 alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogWithStack priority msg =
-  alogDrop (take 2) priority (msg <> "\n" <> prettyCallStack (fromCallSiteList $ dropLogPackageFrames $ getCallStack callStack))
+  alogDrop (take 2) priority (msg <> "\n" <> prettyCallStack (fromCallSiteList $ dropThisPackageFrames $ getCallStack callStack))
 
 alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
 alogs priority msgs = alog priority (unwords msgs)
@@ -117,7 +116,7 @@ instance HasSavedTime UTCTime where savedTime = id
 
 alog' :: forall s m. (MonadIO m, HasSavedTime s, HasCallStack, MonadState s m) => Priority -> String -> m ()
 alog' priority msg = do
-  level <- getLevel <$> liftIO (maybe getRootLogger getLogger (loc' callStack 1))
+  level <- getLevel <$> liftIO (maybe getRootLogger getLogger (prettyLocN callStack 1))
   prev <- use savedTime
   time <- liftIO getCurrentTime
   l <- liftIO logger

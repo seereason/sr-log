@@ -13,12 +13,12 @@ module SeeReason.LogServer (
 import Control.Exception (try)
 import Control.Monad.Trans (MonadIO(..))
 import SeeReason.Log
-import Language.Haskell.TH (ExpQ, Exp, Loc(..), location, pprint, Q)
+-- import Language.Haskell.TH (ExpQ, Exp, Loc(..), location, pprint, Q)
 import System.Directory (doesFileExist)
 import System.Exit
 import System.IO (hPutStrLn, stderr)
 import System.Log.Handler.Syslog (openlog, Option(PID), Facility(..))
-import System.Log.Logger (clearLevel, getLevel, getLogger, logM, Priority(..), rootLoggerName, saveGlobalLogger, setHandlers, setLevel, updateGlobalLogger)
+import System.Log.Logger (clearLevel, getLevel, getLogger, {-logM,-} Priority(..), rootLoggerName, saveGlobalLogger, setHandlers, setLevel, updateGlobalLogger)
 import System.Process (readProcess)
 
   -- unwords [formatTimeCombined time, msg]
@@ -50,7 +50,7 @@ setServerLoggingLevel name new = do
       alog ALERT
         ((case getLevel logger of
             Nothing -> "Setting";
-            Just old -> "Changed") <>
+            Just _old -> "Changed") <>
          (if name == rootLoggerName then "" else " logger " <> name) <>
          " server logging level" <>
          (case getLevel logger of

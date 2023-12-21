@@ -10,14 +10,12 @@ module SeeReason.LogClient
   , module SeeReason.Log
   ) where
 
-import Control.Lens(ix, preview, to)
-import Control.Monad.Except (catchError, throwError)
 import Control.Monad.Trans (MonadIO(..))
 import SeeReason.Log
-import GHC.Stack (CallStack, getCallStack, HasCallStack, SrcLoc(..))
+import GHC.Stack (HasCallStack)
 import System.IO (stdout)
 import System.Log.Formatter (tfLogFormatter)
-import System.Log.Logger as Log (getLevel, getLogger, getRootLogger, Logger(..), Priority(..), rootLoggerName, saveGlobalLogger, setHandlers, setLevel)
+import System.Log.Logger as Log (getLevel, getLogger, getRootLogger, Priority(..), saveGlobalLogger, setHandlers, setLevel)
 import System.Log.Handler (setFormatter)
 import System.Log.Handler.Simple (verboseStreamHandler)
 
@@ -31,7 +29,7 @@ setClientLoggingLevel name new = liftIO $ do
       alog INFO
         ((case getLevel logger of
             Nothing -> "Setting ";
-            Just old -> "Changed ") <>
+            Just _old -> "Changed ") <>
          name <> " logging level" <>
          (case getLevel logger of
             Nothing -> ""
