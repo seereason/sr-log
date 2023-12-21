@@ -42,7 +42,6 @@ import Data.Time.Format (formatTime, defaultTimeLocale)
 #endif
 import GHC.Stack (CallStack, callStack, getCallStack, HasCallStack, SrcLoc(..))
 import GHC.Stack.Types (CallStack(..))
-import Data.Text (Text)
 import Test.HUnit
 
 mintercalate :: Monoid s => s -> [s] -> s
@@ -139,13 +138,13 @@ tests =
                    (prettyLoc testloc))
       , TestCase (assertEqual "srcloc"
                    "Data.Map:20"
-                   (srcloc @Text testloc))
+                   (srcloc @String testloc))
       , TestCase (assertEqual "srclocs"
                    ("Main:44 \8594" <>
                     "AppraisalClient.AppraisalClient:90 \8594" <>
                     "AppraisalClient.AppraisalClient:131 \8594" <>
                     "AppraisalBase.Layout.Viewport:61")
-                   (srclocs @Text teststack))
+                   (srclocs @String teststack))
       , TestCase (assertEqual "srcloccol"
                    "Data.Map:20:1"
                    (srcloccol @String testloc))
