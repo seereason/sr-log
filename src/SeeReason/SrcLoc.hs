@@ -107,10 +107,10 @@ locDrop fn = compactStack (fn getStack)
 -- | Stack with main last.  Bottom frame includes the function name.
 -- Top frame includes the column number.
 compactStack :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> s
-compactStack = mconcat . intersperse (" ← " :: s) . compactLocs
+compactStack = mconcat . intersperse (" < " :: s) . compactLocs
 
 compactStack' :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> s
-compactStack' = mconcat . intersperse (" < " :: s) . compactLocs
+compactStack' = mconcat . intersperse (" ← " :: s) . compactLocs
 
 compactLocs :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> [s]
 compactLocs [] = ["(no CallStack)"]
