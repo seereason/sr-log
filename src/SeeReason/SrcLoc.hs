@@ -27,6 +27,8 @@ module SeeReason.SrcLoc
   , srclocList
   , srclocs
   , compactStack
+  , compactStack'
+  , compactLocs
   -- * Log string formatting
   , locDrop
   -- , tests, testloc, testlocs, teststack
@@ -105,14 +107,17 @@ locDrop fn = compactStack (fn getStack)
 -- | Stack with main last.  Bottom frame includes the function name.
 -- Top frame includes the column number.
 compactStack :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> s
-compactStack [] = "(no CallStack)"
-compactStack [(callee, loc)] = fromString callee <> " ← " <> srcloccol loc
-compactStack [(_, loc), (caller, _)] = srcloccol loc <> "." <> fromString caller
-compactStack ((_, loc) : more@((caller, _) : _)) =
-  mconcat (intersperse (" ← " :: s)
-            (-- fromString callee :
-             srcfunloc loc (fromString caller) :
-             stacktail (fmap snd more)))
+compactStack = mconcat . intersperse (" ← " :: s) . compactLocs
+
+compactStack' :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> s
+compactStack' = mconcat . intersperse (" < " :: s) . compactLocs
+
+compactLocs :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> [s]
+compactLocs [] = ["(no CallStack)"]
+compactLocs [(callee, loc)] = [fromString callee, srcloccol loc]
+compactLocs [(_, loc), (caller, _)] = [srcloccol loc <> "." <> fromString caller]
+compactLocs ((_, loc) : more@((caller, _) : _)) =
+  srcfunloc loc (fromString caller) : stacktail (fmap snd more)
   where
     stacktail :: [SrcLoc] -> [s]
     stacktail [] = []
