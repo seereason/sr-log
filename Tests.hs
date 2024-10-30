@@ -43,11 +43,17 @@ tests =
                    "Data.Map.foo:20"
                    (srcfunloc @String testloc "foo"))
       , TestCase (assertEqual "compactStack"
+                   ("AppraisalBase.Layout.Viewport.layoutViewport:61 < " <>
+                    "AppraisalClient.AppraisalClient:131 < " <>
+                    "AppraisalClient.AppraisalClient:90 < " <>
+                    "Main:44:3")
+                   (compactStack @String testlocs))
+      , TestCase (assertEqual "compactStack'"
                    ("AppraisalBase.Layout.Viewport.layoutViewport:61 \8592 " <>
                     "AppraisalClient.AppraisalClient:131 \8592 " <>
                     "AppraisalClient.AppraisalClient:90 \8592 " <>
                     "Main:44:3")
-                   (compactStack @String testlocs))
+                   (compactStack' @String testlocs))
       , TestCase (assertEqual "locs 0"
                    ("AppraisalBase.Layout.Viewport:61 -> " <>
                     "AppraisalClient.AppraisalClient:131 -> " <>
