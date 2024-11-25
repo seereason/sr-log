@@ -36,7 +36,7 @@ setClientLoggingLevel name new = liftIO $ do
             Just old -> " from " <> show old) <>
           " to " <> show new)
 
-setupClientLogger :: MonadIO m => Priority -> m ()
+setupClientLogger :: (MonadIO m, HasCallStack) => Priority -> m ()
 setupClientLogger lvl = liftIO $ do
   stdoutLog <- verboseStreamHandler stdout lvl
 
