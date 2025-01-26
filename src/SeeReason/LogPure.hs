@@ -19,6 +19,7 @@ module SeeReason.LogPure
   ) where
 
 import Data.Bool (bool)
+import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 #if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup (Semigroup((<>)))
@@ -39,11 +40,12 @@ callSiteOnly = take 2
 
 logString :: HasCallStack => ([(String, SrcLoc)] -> [(String, SrcLoc)]) -> String -> String
 logString fn msg =
-  pre <> take (lim - len) msg <> suf
+  pre <> take (lim - len) (drop 1 msg) <> suf
   where
     len = length pre + length suf
     pre = compactStack (take 2 locs) <> " - "
-    suf = if length locs > 2 then " (" <> compactStack locs <> ")" else ""
+    suf = if length locs > 2 then formattedStack locs else ""
+    locs :: [(String, SrcLoc)]
     locs = fn getStack
     lim =
 #if defined(darwin_HOST_OS)
@@ -51,6 +53,19 @@ logString fn msg =
 #else
           60000
 #endif
+
+formattedStack :: [(String, SrcLoc)] -> String
+formattedStack locs =
+  "\n    (" <> intercalate "\n     " stk <> ")"
+  where
+    stk = fmap (intercalate " < ") (groupsOf 5 (compactLocs locs))
+
+groupsOf :: Int -> [a] -> [[a]]
+groupsOf _ [] = []
+groupsOf n l =
+  case splitAt n l of
+    ([], []) -> []
+    (l', l'') -> l' : groupsOf n l''
 
 logStringOld  :: UTCTime -> UTCTime -> Priority -> String -> String
 logStringOld prev time priority msg =

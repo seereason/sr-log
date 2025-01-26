@@ -44,4 +44,3 @@ test-suite logtests
   type: exitcode-stdio-1.0
   main-is: Tests.hs
   build-depends: base, HUnit, lens, sr-log
-

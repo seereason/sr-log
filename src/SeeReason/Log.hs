@@ -106,7 +106,6 @@ logger =
   case getStack of
     [] -> getRootLogger
     ((_, SrcLoc {..}) : _) -> getLogger srcLocModule
-  where
 
 trimmedStack :: HasCallStack => [([Char], SrcLoc)]
 trimmedStack = take 2 (getCallStack callStack)
