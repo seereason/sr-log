@@ -40,7 +40,7 @@ callSiteOnly = take 2
 
 logString :: HasCallStack => ([(String, SrcLoc)] -> [(String, SrcLoc)]) -> String -> String
 logString fn msg =
-  pre <> take (lim - len) (drop 1 msg) <> suf
+  pre <> take (lim - len) msg <> suf
   where
     len = length pre + length suf
     pre = compactStack (take 2 locs) <> " - "
