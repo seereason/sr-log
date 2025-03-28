@@ -109,6 +109,7 @@ locDrop fn = compactStack (fn getStack)
 compactStack :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> s
 compactStack = mconcat . intersperse (" < " :: s) . compactLocs
 
+-- | 'compactStack' with a different arrow, it can cause problems.
 compactStack' :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> s
 compactStack' = mconcat . intersperse (" ← " :: s) . compactLocs
 
