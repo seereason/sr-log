@@ -1,16 +1,20 @@
 -- | On the client side we use hslogger's simple handlers to log to
 -- stdout.
 
-{-# LANGUAGE FlexibleInstances, RankNTypes, RecordWildCards, TemplateHaskell, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module SeeReason.LogClient
-  ( setClientLoggingLevel
-  , setupClientLogger
+  ( setupClientLogger
+  , setClientLoggingLevel
   , HasSavedTime(..)
   , module SeeReason.Log
   ) where
 
-import Control.Monad.Trans (MonadIO(..))
 import SeeReason.Log
 import GHC.Stack (HasCallStack)
 import System.IO (stdout)
@@ -19,25 +23,27 @@ import System.Log.Logger as Log (getLevel, getLogger, getRootLogger, Priority(..
 import System.Log.Handler (setFormatter)
 import System.Log.Handler.Simple (verboseStreamHandler)
 
-setClientLoggingLevel :: HasCallStack => String -> Priority -> IO ()
-setClientLoggingLevel name new = liftIO $ do
+setClientLoggingLevel ::
+  HasCallStack
+  => String
+  -> Priority
+  -> IO ()
+setClientLoggingLevel name new = do
   logger <- getLogger name
   case getLevel logger of
     Just old | old == new -> pure ()
-    _ -> do
-      saveGlobalLogger (setLevel new $ logger)
-      alog INFO
-        ((case getLevel logger of
-            Nothing -> "Setting ";
-            Just _old -> "Changed ") <>
-         name <> " logging level" <>
-         (case getLevel logger of
-            Nothing -> ""
-            Just old -> " from " <> show old) <>
-          " to " <> show new)
+    Just old -> do
+      alog INFO ("Changing logger " <> name <> " logging level from " <> show old <> " to " <> show new)
+      saveGlobalLogger (setLevel new logger)
+    Nothing -> do
+      alog INFO ("Initializing logger " <> name <> " to " <> show new)
+      saveGlobalLogger (setLevel new logger)
 
-setupClientLogger :: (MonadIO m, HasCallStack) => Priority -> m ()
-setupClientLogger lvl = liftIO $ do
+setupClientLogger ::
+  HasCallStack
+  => Priority
+  -> IO ()
+setupClientLogger lvl = do
   stdoutLog <- verboseStreamHandler stdout lvl
 
   saveGlobalLogger =<<
