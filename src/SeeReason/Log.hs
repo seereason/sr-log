@@ -15,7 +15,6 @@
 module SeeReason.Log
   ( module SeeReason.LogPure
   , LoggerName(LoggerName)
-  , LoggerIO(logConfig)
   , LogConfig(LogConfig, loggerConfig)
   , LoggerConfig(LoggerConfig, logStack, logLevel)
   , defaultLogConfig
@@ -37,15 +36,12 @@ module SeeReason.Log
   ) where
 
 import Control.Lens ((.=), Lens', use)
-import Control.Monad.Except (ExceptT, msum, when)
-import Control.Monad.Reader (ReaderT)
-import Control.Monad.RWS (RWST)
-import Control.Monad.State (MonadState, StateT)
-import Control.Monad.Trans (lift, liftIO, MonadIO)
-import Control.Monad.Writer (WriterT)
+import Control.Monad.Except (when)
+import Control.Monad.State (MonadState)
+import Control.Monad.Trans (liftIO, MonadIO)
 import Data.Data (Data)
 import Data.Default (Default(def))
-import Data.Map as Map (lookup, Map)
+import Data.Map as Map (Map)
 import Data.Serialize (Serialize(get, put))
 import Data.SafeCopy (SafeCopy(version), safeGet, safePut)
 #if !MIN_VERSION_base(4,11,0)
@@ -60,7 +56,7 @@ import Data.Time.Format (formatTime, defaultTimeLocale)
 import Data.Typeable (Typeable)
 -- import Extra.Orphans ({-instance Pretty SrcLoc-})
 import GHC.Generics (Generic)
-import GHC.Stack (callStack, HasCallStack, {-fromCallSiteList, getCallStack, prettyCallStack,-} SrcLoc(..))
+import GHC.Stack (callStack, HasCallStack, fromCallSiteList, getCallStack, prettyCallStack, SrcLoc(..))
 import SeeReason.LogPure
 import SeeReason.SrcLoc
 import System.Log.Logger (getLevel, getLogger, getRootLogger, Logger, logL, Priority(..), rootLoggerName)
@@ -105,59 +101,25 @@ defaultLogConfig = LogConfig {loggerConfig = [(fromString rootLoggerName, defaul
 defaultLoggerConfig :: LoggerConfig
 defaultLoggerConfig = LoggerConfig {logLevel = WARNING, logStack = False, logLimit = Just 400}
 
--- | Obtain logger configuration from a monad.
-class MonadIO m => LoggerIO m where
-  logConfig :: m LogConfig
-  logConfig = pure defaultLogConfig
-
-instance LoggerIO IO
-
-instance LoggerIO m => LoggerIO (StateT s m) where
-  logConfig = lift logConfig
-
-instance (Monoid w, LoggerIO m) => LoggerIO (WriterT w m) where
-  logConfig = lift logConfig
-
-instance (Monoid w, LoggerIO m) => LoggerIO (RWST r w s m) where
-  logConfig = lift logConfig
-
-instance LoggerIO m => LoggerIO (ReaderT s m) where
-  logConfig = lift logConfig
-
-instance LoggerIO m => LoggerIO (ExceptT e m) where
-  logConfig = lift logConfig
-
 alogDrop :: (MonadIO m, HasCallStack) => (Locs -> Locs) -> Priority -> String -> m ()
 alogDrop fn priority msg = do
   -- time <- getCurrentTime
   l <- liftIO logger
   liftIO $ logL l priority (logString fn msg)
 
-alog :: (MonadIO m, LoggerIO m, HasCallStack) => Priority -> String -> m ()
--- alog priority msg | priority >= WARNING = alogDrop id priority msg
-alog priority msg = do
-  let name :: LoggerName
-      name =
-        case getStack of
-          [] -> LoggerName (pack rootLoggerName)
-          (_, SrcLoc{..}) : _ -> LoggerName (pack srcLocModule)
-  LogConfig{..} <- logConfig
-  let ~(Just LoggerConfig{..}) =
-        msum ([Map.lookup name loggerConfig,
-               Map.lookup (LoggerName (pack rootLoggerName)) loggerConfig,
-               Just defaultLoggerConfig] :: [Maybe LoggerConfig])
-  let fn = if (logStack || priority >= WARNING) then id else take 2
-  alogDrop fn priority msg
+alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
+alog priority msg | priority >= WARNING = alogWithStack priority msg
+alog priority msg = alogDrop (take 2) priority msg
 
 alog2 :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
-alog2 priority msg | priority >= WARNING = alogDrop id priority msg
+alog2 priority msg | priority >= WARNING = alogWithStack priority msg
 alog2 priority msg = alogDrop (take 3) priority msg
 
--- alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
--- alogWithStack priority msg =
---   alogDrop (take 2) priority (msg <> "\n" <> prettyCallStack (fromCallSiteList $ dropThisPackageFrames $ getCallStack callStack))
+alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
+alogWithStack priority msg =
+  alogDrop (take 2) priority (msg <> "\n" <> prettyCallStack (fromCallSiteList $ dropThisPackageFrames $ getCallStack callStack))
 
-alogs :: forall m. (LoggerIO m, HasCallStack) => Priority -> [String] -> m ()
+alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
 alogs priority msgs = alog priority (unwords msgs)
 
 -- | Truncate a string and add an ellipsis.
