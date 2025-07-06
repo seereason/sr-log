@@ -58,7 +58,7 @@ formattedStack :: [(String, SrcLoc)] -> String
 formattedStack locs =
   "\n    (" <> intercalate "\n     " stk <> ")"
   where
-    stk = fmap (intercalate " < ") (groupsOf 5 (compactLocs locs))
+    stk = fmap (intercalate " > ") (groupsOf 5 (compactLocs (reverse locs)))
 
 groupsOf :: Int -> [a] -> [[a]]
 groupsOf _ [] = []
