@@ -101,12 +101,14 @@ defaultLogConfig = LogConfig {loggerConfig = [(fromString rootLoggerName, defaul
 defaultLoggerConfig :: LoggerConfig
 defaultLoggerConfig = LoggerConfig {logLevel = WARNING, logStack = False, logLimit = Just 400}
 
+-- | Log message with a multi-line log stack on the next line
 alogDrop :: (MonadIO m, HasCallStack) => (Locs -> Locs) -> Priority -> String -> m ()
 alogDrop fn priority msg = do
   -- time <- getCurrentTime
   l <- liftIO logger
   liftIO $ logL l priority (logString fn msg)
 
+-- | Normal log message with location
 alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alog priority msg | priority >= WARNING = alogWithStack priority msg
 alog priority msg = alogDrop (take 2) priority msg

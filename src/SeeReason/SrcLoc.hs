@@ -32,9 +32,11 @@ module SeeReason.SrcLoc
   -- * Log string formatting
   , locDrop
   -- , tests, testloc, testlocs, teststack
+  , putStrLnLoc
   ) where
 
 import Control.Lens(ix, preview, to)
+import Control.Monad.Trans (MonadIO(liftIO))
 import Data.List (intercalate, intersperse, isPrefixOf)
 #if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup (Semigroup((<>)))
@@ -62,7 +64,7 @@ locs stack n =
   (intercalate " -> " . fmap (prettyLoc . snd) . drop n . getCallStack) stack
 
 -- | Compactly format a call stack.
-srclocs :: (HasCallStack, IsString s, Monoid s) => CallStack -> s
+srclocs :: (IsString s, Monoid s) => CallStack -> s
 -- The space before the arrow allows the console to add line breaks.
 -- The space after is omitted to make these line breaks more
 -- consistent.
@@ -70,7 +72,7 @@ srclocs = mintercalate (fromString " →") . srclocList
 
 -- | List of more compactly pretty printed CallStack location.
 -- Reversed so main comes first.
-srclocList :: (HasCallStack, IsString s) => CallStack -> [s]
+srclocList :: IsString s => CallStack -> [s]
 srclocList = fmap (fromString . srcloc . snd) . reverse . getCallStack
 
 -- | Compactly format a source location
@@ -82,7 +84,7 @@ srcfunloc :: (IsString s, Semigroup s) => SrcLoc -> s -> s
 srcfunloc loc f = fromString (srcLocModule loc) <> "." <> f <> ":" <> fromString (show (srcLocStartLine loc))
 
 -- | With start column
-srcloccol :: (HasCallStack, IsString s, Semigroup s) => SrcLoc -> s
+srcloccol :: (IsString s, Semigroup s) => SrcLoc -> s
 srcloccol loc = srcloc loc <> ":" <> fromString (show (srcLocStartCol loc))
 
 srcfunloccol :: (IsString s, Semigroup s) => SrcLoc -> s -> s
@@ -106,14 +108,14 @@ locDrop fn = compactStack (fn getStack)
 
 -- | Stack with main last.  Bottom frame includes the function name.
 -- Top frame includes the column number.
-compactStack :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> s
+compactStack :: forall s. (IsString s, Monoid s) => [(String, SrcLoc)] -> s
 compactStack = mconcat . intersperse (" < " :: s) . compactLocs
 
 -- | 'compactStack' with a different arrow, it can cause problems.
-compactStack' :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> s
+compactStack' :: forall s. (IsString s, Monoid s) => [(String, SrcLoc)] -> s
 compactStack' = mconcat . intersperse (" ← " :: s) . compactLocs
 
-compactLocs :: forall s. (IsString s, Monoid s, HasCallStack) => [(String, SrcLoc)] -> [s]
+compactLocs :: forall s. (IsString s, Monoid s) => [(String, SrcLoc)] -> [s]
 compactLocs [] = ["(no CallStack)"]
 compactLocs [(callee, loc)] = [fromString callee, srcloccol loc]
 compactLocs [(_, loc), (caller, _)] = [srcloccol loc <> "." <> fromString caller]
@@ -126,3 +128,6 @@ compactLocs ((_, loc) : more@((caller, _) : _)) =
     -- figure out which caller is missing the HasCallStack constraint.
     stacktail [loc'] = [srcloccol loc']
     stacktail (loc' : more') = srcloc loc' : stacktail more'
+
+putStrLnLoc :: (MonadIO m, HasCallStack) => String -> m ()
+putStrLnLoc msg = liftIO $ putStrLn (compactStack (take 2 getStack) <> ": " <> msg)
