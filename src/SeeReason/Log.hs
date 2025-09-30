@@ -23,7 +23,6 @@ module SeeReason.Log
   , alog2
   , alogDrop
   , alogs
-  , LogState_0(..)
   -- , alogG
   -- , alogH
   , printLoc
@@ -127,18 +126,6 @@ alogs priority msgs = alog priority (unwords msgs)
 -- | Truncate a string and add an ellipsis.
 -- ellipsis :: Int -> String -> String
 -- ellipsis n s = if Data.Foldable.length s > n + 3 then take n s <> "..." else s
-
-data LogState_0
-  = LogState_0
-    { trace_0 :: Bool
-    , short_0 :: Bool
-    } deriving (Eq, Ord, Show, Generic, Data, Typeable)
-
-instance SafeCopy LogState_0
-instance Serialize LogState_0 where get = safeGet; put = safePut
-
-instance Default LogState_0 where
-  def = LogState_0 {trace_0 = False, short_0 = True}
 
 printLoc :: (Show a, HasCallStack, MonadIO m) => a -> m ()
 printLoc x = putLoc >> liftIO (print x)
