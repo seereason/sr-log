@@ -94,14 +94,8 @@ srcfunloccol loc f = srcfunloc loc f <> ":" <> fromString (show (srcLocStartLine
 thisPackage :: String
 thisPackage = "sr-log-"
 
-
--- Warning - in the interpreter the package is always "main"
-dropPackageFrames :: [(String, SrcLoc)] -> [(String, SrcLoc)]
-dropPackageFrames [] = []
-dropPackageFrames (frame1 : frames) =
-  dropWhile (\frame ->
-               srcLocPackage (snd frame) == srcLocPackage (snd frame1)) frames
-
+-- | Drop the first element of a call stack and all subsequent frames
+-- from the same module.
 dropModuleFrames :: [(String, SrcLoc)] -> [(String, SrcLoc)]
 dropModuleFrames [] = []
 dropModuleFrames (frame1 : frames) =
@@ -109,9 +103,19 @@ dropModuleFrames (frame1 : frames) =
                srcLocPackage (snd frame) == srcLocPackage (snd frame1) &&
                srcLocModule (snd frame) == srcLocModule (snd frame1)) frames
 
--- | Get the portion of the stack before we entered any SeeReason.Log module.
+-- | Drop the first element of a call stack and all subsequent frames
+-- from the same package.  Don't use this in the interpeter, the
+-- package is always main.
+dropPackageFrames :: [(String, SrcLoc)] -> [(String, SrcLoc)]
+dropPackageFrames [] = []
+dropPackageFrames (frame1 : frames) =
+  dropWhile (\frame ->
+               srcLocPackage (snd frame) == srcLocPackage (snd frame1)) frames
+
+-- | The first element of the result will be the call to 'getStack' and
+-- the location from which it was called.
 getStack :: HasCallStack => [(String, SrcLoc)]
-getStack = dropModuleFrames $ getCallStack callStack
+getStack = getCallStack callStack
 
 -- | Build the prefix of a log message, after applying a function to
 -- the call stack.

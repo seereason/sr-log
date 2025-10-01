@@ -6,13 +6,13 @@ import SeeReason.SrcLoc -- (tests)
 import System.Exit
 import Test.HUnit hiding (Path)
 
-main :: IO ()
+main :: HasCallStack => IO ()
 main =
   runTestTT tests >>= \case Counts {errors = 0, failures = 0} -> return ()
                             _ -> exitWith $ ExitFailure 1
 
 -- | These are not really tests, they are more like documentation.
-tests :: Test
+tests :: HasCallStack => Test
 tests =
   TestList
       [ TestCase (assertEqual "prettyLoc"
@@ -66,7 +66,14 @@ tests =
                    (Just "AppraisalClient.AppraisalClient:90")
                    (prettyLocN teststack 2))
       , TestCase (assertEqual "getStack"
-                   1
+                {- [("getStack", SrcLoc {srcLocPackage = "main", srcLocModule = "Main", srcLocFile = "Tests.hs",
+                                         srcLocStartLine = 70, srcLocStartCol = 26, srcLocEndLine = 70, srcLocEndCol = 34}),
+                     ("tests",SrcLoc {srcLocPackage = "main", srcLocModule = "Main", srcLocFile = "Tests.hs", srcLocStartLine = 11,
+                                      srcLocStartCol = 13, srcLocEndLine = 11, srcLocEndCol = 18}),
+                     ("main",SrcLoc {srcLocPackage = "main", srcLocModule = "Main", srcLocFile = "Tests.hs",
+                                     srcLocStartLine = 10, srcLocStartCol = 1, srcLocEndLine = 10, srcLocEndCol = 1})]
+                   (show getStack) -}
+                   3
                    (length getStack))
       ]
 
