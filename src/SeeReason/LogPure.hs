@@ -46,7 +46,7 @@ logString fn msg =
     pre = compactStack (take 2 locs) <> " - "
     suf = if length locs > 2 then formattedStack locs else ""
     locs :: [(String, SrcLoc)]
-    locs = fn getStack
+    locs = fn $ dropModuleFrames {-LogPure-} $ dropModuleFrames {-SrcLoc-} getStack
     lim =
 #if defined(darwin_HOST_OS)
           2002
