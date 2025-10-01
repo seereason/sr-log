@@ -10,11 +10,11 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS -Wall -Werror=unused-top-binds -Werror=unused-imports #-}
 
 module SeeReason.SrcLoc
   ( getStack
-  , dropThisPackageFrames
+  , dropPackageFrames
+  , dropModuleFrames
   -- * Full stack formatting
   , prettyLoc
   , prettyLocN
@@ -33,6 +33,7 @@ module SeeReason.SrcLoc
   , locDrop
   -- , tests, testloc, testlocs, teststack
   , putStrLnLoc
+  , putStrLnLocs
   ) where
 
 import Control.Lens(ix, preview, to)
@@ -93,12 +94,24 @@ srcfunloccol loc f = srcfunloc loc f <> ":" <> fromString (show (srcLocStartLine
 thisPackage :: String
 thisPackage = "sr-log-"
 
-dropThisPackageFrames :: [(String, SrcLoc)] -> [(String, SrcLoc)]
-dropThisPackageFrames = dropWhile (isPrefixOf thisPackage . srcLocPackage . snd)
+
+-- Warning - in the interpreter the package is always "main"
+dropPackageFrames :: [(String, SrcLoc)] -> [(String, SrcLoc)]
+dropPackageFrames [] = []
+dropPackageFrames (frame1 : frames) =
+  dropWhile (\frame ->
+               srcLocPackage (snd frame) == srcLocPackage (snd frame1)) frames
+
+dropModuleFrames :: [(String, SrcLoc)] -> [(String, SrcLoc)]
+dropModuleFrames [] = []
+dropModuleFrames (frame1 : frames) =
+  dropWhile (\frame ->
+               srcLocPackage (snd frame) == srcLocPackage (snd frame1) &&
+               srcLocModule (snd frame) == srcLocModule (snd frame1)) frames
 
 -- | Get the portion of the stack before we entered any SeeReason.Log module.
 getStack :: HasCallStack => [(String, SrcLoc)]
-getStack = dropThisPackageFrames $ getCallStack callStack
+getStack = dropModuleFrames $ getCallStack callStack
 
 -- | Build the prefix of a log message, after applying a function to
 -- the call stack.
@@ -130,4 +143,7 @@ compactLocs ((_, loc) : more@((caller, _) : _)) =
     stacktail (loc' : more') = srcloc loc' : stacktail more'
 
 putStrLnLoc :: (MonadIO m, HasCallStack) => String -> m ()
-putStrLnLoc msg = liftIO $ putStrLn (compactStack (take 2 getStack) <> ": " <> msg)
+putStrLnLoc msg = liftIO $ putStrLn (msg <> " (" <> compactStack (take 2 $ dropModuleFrames $ getStack) <> ")")
+
+putStrLnLocs :: (MonadIO m, HasCallStack) => Int -> String -> m ()
+putStrLnLocs n msg = liftIO $ putStrLn (msg <> " (" <> compactStack (take (n + 2) $ dropModuleFrames $ getStack) <> ")")

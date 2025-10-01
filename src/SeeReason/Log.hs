@@ -118,7 +118,7 @@ alog2 priority msg = alogDrop (take 3) priority msg
 
 alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogWithStack priority msg =
-  alogDrop (take 2) priority (msg <> "\n" <> prettyCallStack (fromCallSiteList $ dropThisPackageFrames $ getCallStack callStack))
+  alogDrop (take 2) priority (msg <> "\n" <> prettyCallStack (fromCallSiteList $ dropModuleFrames $ dropModuleFrames $ getCallStack callStack))
 
 alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
 alogs priority msgs = alog priority (unwords msgs)
