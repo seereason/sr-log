@@ -45,4 +45,4 @@ test-suite logtests
   default-language: Haskell2010
   type: exitcode-stdio-1.0
   main-is: Tests.hs
-  build-depends: base, HUnit, lens, sr-log
+  build-depends: base, HUnit, lens, pretty, sr-log

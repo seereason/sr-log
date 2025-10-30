@@ -8,129 +8,78 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS -Wall #-}
+{-# OPTIONS -Wall -Werror=unused-imports -Werror=redundant-constraints -Werror=unused-top-binds -Werror=name-shadowing #-}
 
 module SeeReason.Log
-  ( LogConfig(LogConfig, loggerConfig)
+  ( -- * Configuration
+    LogConfig(LogConfig, loggerConfig)
   , LoggerName(LoggerName)
   , LoggerConfig(LoggerConfig, logStack, logLevel)
   , defaultLoggerConfig
   , defaultLogConfig
+
+  , logger, loggerName, loggerLoc
+
+    -- * Logging
   , alog
   , alogDrop
   , alogN
   , logString
-  , getStack
-  , compactStack
-  , compactStackWith
-  , parentFunc
+
+    -- * Locations
   , loc
   , srclocList
+  , srcloc
+  , srcloccol
+  , srcfunloc
   , srclocs
   , putStrLnLoc
   , putStrLnLocs
 
-  -- * Pretty print
+    -- * Stack
+  , getStack
+  , compactStack
+  , compactStackWith
+  , parentFunc
+
   , thisFunction
   , thisLocation, ici
   , thisLocation'
   , thisLocation''
 
+  , dropModuleFrames, dropPackageFrames
+
     -- * Elapsed time
   , HasSavedTime(..)
   , alogElapsed
-#if 0
-  , dropPackageFrames
-  , dropModuleFrames
-  -- * Full stack formatting
-  , prettyLoc
-  , prettyLocN
-  , topLoc
-  , topLocs
-  , locs
-  -- * Compact stack formatting
-  , srcloc
-  , srcloccol
-  , srcfunloc
-  , srcfunloccol
-  , compactStack'
-  , compactLocs
-  -- * Log string formatting
-  , locDrop
-
-    -- * from SeeReason.LogPure
-  , callSiteOnly
-  , logStringOld
-
-    -- * from SeeReason.Log
-  , loggerName, logger
-  , alog2
-  , alogs
-  -- , alogG
-  -- , alogH
-  , printLoc
-  , putLoc
-    -- * from Base.Log
-  , alogShow
-#endif
-#if 0
-  , scrubLoc
-  , locN
-  -- * With Column numbers
-  , srclocs'
-  , srclocList'
-  , srcloc'
-
-  , locmsg
-  , hlocmsg
-  , locAttr
-#endif
     -- * Re-exports
   , Priority(..)
   ) where
 
-import Control.Lens ((.=), _2, Lens', ix, preview, to, use)
+import Control.Lens ((.=), Lens', ix, preview, to, use)
 import Control.Monad.Except (when)
 import Control.Monad.State (MonadState)
 import Control.Monad.Trans (MonadIO(liftIO))
 import Data.Bool (bool)
 import Data.Data (Data)
-import Data.Default (Default(def))
-import Data.List as List (intercalate, intersperse, isPrefixOf, isSuffixOf, uncons)
+-- import Data.Default (Default(def))
+import Data.List as List (intercalate, intersperse, isSuffixOf, uncons)
 import Data.Map as Map (Map)
-import Data.Maybe (fromJust, fromMaybe)
-import Data.SafeCopy (SafeCopy(version), safeGet, safePut)
+import Data.Maybe (fromMaybe)
+import Data.SafeCopy (SafeCopy, safeGet, safePut)
 import Data.Serialize (Serialize(get, put))
 import Data.String (IsString(fromString))
 import Data.Text (pack, Text)
 import Data.Time (diffUTCTime, getCurrentTime, UTCTime)
 import Data.Typeable (Typeable)
-import Debug.Trace (trace)
 import GHC.Generics (Generic)
 import GHC.Stack (CallStack, callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
 import SeeReason.LogOrphans ()
-import System.IO (hPutStrLn, stderr)
 import System.Log.Logger (getLevel, getLogger, getRootLogger, Logger, logL, Priority(..), rootLoggerName)
-import Text.PrettyPrint.HughesPJClass ( Pretty(pPrint), prettyShow, text )
+import Text.PrettyPrint.HughesPJClass (prettyShow)
 import Text.Printf (printf)
 
 import qualified Data.Function as Fn ((&))
-
-#if 0
-import Base.Alderon (dataSafe_)
-import Base.Orphans ({-instance Pretty SrcLoc-})
-import Base.Utils.Debug (traceWith)
-import Control.Monad.Except (liftIO, MonadIO)
-import Control.Lens as Lens (_2, ix, preview, to)
-import Data.Maybe (fromJust)
-import Data.String (IsString)
-import GHC.Stack (CallStack, callStack, getCallStack, HasCallStack, SrcLoc(..))
-import Data.String (fromString)
-import SeeReason.Loc (srcloc, srclocs)
-import System.IO (hPutStrLn, stderr)
-import Text.PrettyPrint.HughesPJClass (prettyShow, text)
-import Alderon.Alderon
-#endif
 
 #if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup (Semigroup((<>)))
@@ -147,11 +96,7 @@ prettyLocN :: CallStack -> Int -> Maybe String
 prettyLocN stack n = preview (to getCallStack . ix n . to (prettyLoc . snd)) stack
 
 prettyLoc :: SrcLoc -> String
-prettyLoc SrcLoc{..} =
-  foldr @[] (++) ""
-    [ srcLocModule, ":"
-    , show srcLocStartLine {-, ":"
-    , show srcLocStartCol-} ]
+prettyLoc = prettyShow
 
 topLoc :: (IsString s, Monoid s, HasCallStack) => s
 topLoc = compactStack (take 2 $ dropModuleFrames $ getStack)
@@ -164,11 +109,6 @@ putStrLnLoc msg = liftIO $ putStrLn (msg <> " (" <> topLoc <> ")")
 
 putStrLnLocs :: (MonadIO m, HasCallStack) => Int -> String -> m ()
 putStrLnLocs n msg = liftIO $ putStrLn (msg <> " (" <> topLocs n <> ")")
-
--- | Verbosely format the full call stack starting at the nth level up.
-locs :: CallStack -> Int -> String
-locs stack n =
-  (intercalate " -> " . fmap (prettyLoc . snd) . drop n . getCallStack) stack
 
 -- | Compactly format a call stack.
 srclocs :: (IsString s, Monoid s) => CallStack -> s
@@ -184,21 +124,15 @@ srclocList = fmap (fromString . srcloc . snd) . reverse . getCallStack
 
 -- | Compactly format a source location
 srcloc :: (IsString s, Semigroup s) => SrcLoc -> s
-srcloc loc = fromString (srcLocModule loc) <> ":" <> fromString (show (srcLocStartLine loc))
+srcloc l = fromString (srcLocModule l) <> ":" <> fromString (show (srcLocStartLine l))
 
 -- | Compactly format a source location with a function name
 srcfunloc :: (IsString s, Semigroup s) => SrcLoc -> s -> s
-srcfunloc loc f = fromString (srcLocModule loc) <> "." <> f <> ":" <> fromString (show (srcLocStartLine loc))
+srcfunloc l f = fromString (srcLocModule l) <> "." <> f <> ":" <> fromString (show (srcLocStartLine l))
 
 -- | With start column
 srcloccol :: (IsString s, Semigroup s) => SrcLoc -> s
-srcloccol loc = srcloc loc <> ":" <> fromString (show (srcLocStartCol loc))
-
-srcfunloccol :: (IsString s, Semigroup s) => SrcLoc -> s -> s
-srcfunloccol loc f = srcfunloc loc f <> ":" <> fromString (show (srcLocStartLine loc))
-
-thisPackage :: String
-thisPackage = "sr-log-"
+srcloccol l = srcloc l <> ":" <> fromString (show (srcLocStartCol l))
 
 -- | Drop the first element of a call stack and all subsequent frames
 -- from the same module.
@@ -223,38 +157,24 @@ dropPackageFrames (frame1 : frames) =
 getStack :: HasCallStack => [(String, SrcLoc)]
 getStack = getCallStack callStack
 
--- | Build the prefix of a log message, after applying a function to
--- the call stack.
-locDrop :: HasCallStack => ([(String, SrcLoc)] -> [(String, SrcLoc)]) -> String
-locDrop fn = compactStack (fn getStack)
-{-# DEPRECATED locDrop "Use compactStack (fn getStack)" #-}
-
 -- | Stack with main last.  Bottom frame includes the function name.
 -- Top frame includes the column number.
 compactStack :: forall s. (IsString s, Monoid s) => [(String, SrcLoc)] -> s
 compactStack = mconcat . intersperse (" < " :: s) . compactLocs
 
--- | 'compactStack' with a different arrow, it can cause problems.
-compactStack' :: forall s. (IsString s, Monoid s) => [(String, SrcLoc)] -> s
-compactStack' = mconcat . intersperse (" ← " :: s) . compactLocs
-
 compactLocs :: forall s. (IsString s, Monoid s) => [(String, SrcLoc)] -> [s]
 compactLocs [] = ["(no CallStack)"]
-compactLocs [(callee, loc)] = [fromString callee, srcloccol loc]
-compactLocs [(_, loc), (caller, _)] = [srcloccol loc <> "." <> fromString caller]
-compactLocs ((_, loc) : more@((caller, _) : _)) =
-  srcfunloc loc (fromString caller) : stacktail (fmap snd more)
+compactLocs [(callee, l)] = [fromString callee, srcloccol l]
+compactLocs [(_, l), (caller, _)] = [srcloccol l <> "." <> fromString caller]
+compactLocs ((_, l) : more@((caller, _) : _)) =
+  srcfunloc l (fromString caller) : stacktail (fmap snd more)
   where
     stacktail :: [SrcLoc] -> [s]
     stacktail [] = []
     -- Include the column number of the last item, it may help to
     -- figure out which caller is missing the HasCallStack constraint.
-    stacktail [loc'] = [srcloccol loc']
-    stacktail (loc' : more') = srcloc loc' : stacktail more'
-
--- | Display the function and module where the logger was called
-callSiteOnly = take 2
-{-# DEPRECATED callSiteOnly "Use take 2" #-}
+    stacktail [l'] = [srcloccol l']
+    stacktail (l' : more') = srcloc l' : stacktail more'
 
 logString :: HasCallStack => ([(String, SrcLoc)] -> [(String, SrcLoc)]) -> String -> String
 logString fn msg =
@@ -304,12 +224,6 @@ logStringOld prev time priority msg =
 type FunctionName = String
 type Locs = [(FunctionName, SrcLoc)]
 
--- deriving instance Data Priority
--- deriving instance Generic Priority
-instance Serialize Priority where get = safeGet; put = safePut
-instance SafeCopy Priority where version = 1
-instance Pretty Priority where pPrint level = text (show level)
-
 newtype LoggerName = LoggerName Text deriving (Generic, Eq, Ord, Show, Typeable, Data)
 instance Serialize LoggerName where get = safeGet; put = safePut
 instance SafeCopy LoggerName
@@ -352,35 +266,19 @@ alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alog priority msg | priority >= WARNING = alogWithStack priority msg
 alog priority msg = alogDrop (take 2) priority msg
 
-alog2 :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
-alog2 priority msg | priority >= WARNING = alogWithStack priority msg
-alog2 priority msg = alogDrop (take 3) priority msg
-
 alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogWithStack priority msg =
   alogDrop (take 2) priority (msg <> "\n" <> prettyCallStack (fromCallSiteList $ dropModuleFrames $ dropModuleFrames $ getCallStack callStack))
-
-alogs :: forall m. (MonadIO m, HasCallStack) => Priority -> [String] -> m ()
-alogs priority msgs = alog priority (unwords msgs)
 
 -- | Truncate a string and add an ellipsis.
 -- ellipsis :: Int -> String -> String
 -- ellipsis n s = if Data.Foldable.length s > n + 3 then take n s <> "..." else s
 
-printLoc :: (Show a, HasCallStack, MonadIO m) => a -> m ()
-printLoc x = putLoc >> liftIO (print x)
-
-putLoc :: (HasCallStack, MonadIO m) => m ()
-putLoc = liftIO (putStr (compactStack (take 2 getStack) <> " - "))
-
 -- | A logger based on the module name at the top of the stack,
 -- excluding names from this module.  This is fragile, refactoring can
 -- break it.
 logger :: HasCallStack => IO Logger
-logger = getLogger $ traceWith (\name -> "logger at: " <> loggerLoc) $ loggerName
-
-traceWith :: HasCallStack => (a -> String) -> a -> a
-traceWith f a = trace (f a) a
+logger = getLogger $ {-trace ("logger at: " <> loggerLoc) $-} loggerName
 
 loggerName :: HasCallStack => String
 loggerName =
@@ -392,7 +290,7 @@ loggerLoc :: HasCallStack => String
 loggerLoc =
   case dropPackageFrames getStack of
     [] -> rootLoggerName
-    ((_, loc) : _) -> prettyLoc loc
+    ((_, l) : _) -> prettyLoc l
 
 -- trimmedStack :: HasCallStack => [([Char], SrcLoc)]
 -- trimmedStack = take 2 (getCallStack callStack)
@@ -424,12 +322,6 @@ callSiteN :: HasCallStack => Int -> DropFn
 callSiteN depth = take (depth + 1) . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
   where _ = callStack
 
-trimmedStack :: HasCallStack => Locs
-trimmedStack = take 2 (getCallStack callStack)
-
-alogShow :: forall a m. (Show a, MonadIO m) => Priority -> String -> a -> m ()
-alogShow priority prefix a = alog priority (prefix <> show a)
-
 -- from Base.SrcLoc
 
 -- | This function creates a value which uniquely identifies the
@@ -448,10 +340,6 @@ here = head $ dropModuleFrames getStack
 -- differences, not sure what risks this might entail.
 scrubLoc :: SrcLoc -> SrcLoc
 scrubLoc l = l {srcLocPackage = "", srcLocFile = ""}
-
--- | Like loc, but looks n frames down into the stack.
-locN :: HasCallStack => Int -> SrcLoc
-locN n = fromJust $ preview (to getCallStack . ix n . _2) callStack
 
 -- | Pretty print the location where this appears
 thisLocation :: (HasCallStack, IsString s) => s
@@ -477,28 +365,6 @@ ici = thisLocation
 thisFunction :: (HasCallStack, IsString s) => s
 thisFunction = maybe "???" (fromString . fst . fst) $ List.uncons $ dropModuleFrames getStack
 
--- | Compactly format a call stack.
-srclocs' :: (IsString s, Monoid s) => CallStack -> s
--- The space before the arrow allows the console to add line breaks.
--- The space after is omitted to make these line breaks more
--- consistent.
-srclocs' = mintercalate (fromString " →") . srclocList'
-
--- | List of more compactly pretty printed CallStack location.
--- Reversed so main comes first.
-srclocList' :: IsString s => CallStack -> [s]
-srclocList' = fmap (fromString . srcloc' . snd) . reverse . getCallStack
-
--- | Compactly format a source location
-srcloc' :: (IsString s, Semigroup s) => SrcLoc -> s
-srcloc' l = srcloc l <> ":" <> fromString (show (srcLocStartCol l))
-
-locmsg :: (MonadIO m, HasCallStack) => String -> m ()
-locmsg s = liftIO (putStrLn (s <> " (" <> maybe "???" srcloc (preview (to getCallStack . ix 0 . _2) callStack) <> ")"))
-
-hlocmsg :: (MonadIO m, HasCallStack) => String -> m ()
-hlocmsg s = liftIO (hPutStrLn stderr (s <> " (" <> maybe "???" srcloc (preview (to getCallStack . ix 0 . _2) callStack) <> ")"))
-
 compactStackWith :: forall s. (IsString s, Monoid s) => (forall a. [a] -> [a]) -> [(String, SrcLoc)] -> s
 compactStackWith f locs = compactStack ((f . drop 1) locs)
 
@@ -510,8 +376,3 @@ parentFunc child =
         drop 1) of
     ((x@(_ : _), _) : _) -> x
     _ -> show getStack
-
-#if 0
-locAttr :: HasCallStack => (forall a. [a] -> [a]) -> Attribute
-locAttr f = dataSafe_ "loc" (compactStackWith (f . drop 1) getStack)
-#endif

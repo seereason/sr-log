@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS -Wno-orphans #-}
 
 module SeeReason.LogOrphans where
 
@@ -9,10 +10,16 @@ import Data.SafeCopy (SafeCopy(version), safeGet, safePut)
 import Data.Serialize (Serialize(get, put))
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
-import GHC.Stack (callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
+import GHC.Stack (SrcLoc(..))
 import GHC.Stack.Types (CallStack(..))
-import Text.PrettyPrint.HughesPJClass ( Pretty(pPrint), prettyShow, text )
+import System.Log.Logger (Priority(..))
+import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
 
+-- deriving instance Data Priority
+-- deriving instance Generic Priority
+instance Serialize Priority where get = safeGet; put = safePut
+instance SafeCopy Priority where version = 1
+instance Pretty Priority where pPrint level = text (show level)
 
 deriving instance Generic CallStack
 deriving instance Eq CallStack

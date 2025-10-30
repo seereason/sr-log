@@ -1,10 +1,13 @@
 {-# LANGUAGE LambdaCase, TypeApplications #-}
 
+import Control.Lens (preview, to, ix)
+import Data.List (intercalate)
 import GHC.Stack (callStack, getCallStack, HasCallStack, SrcLoc(..))
 import GHC.Stack.Types (CallStack(EmptyCallStack, PushCallStack))
-import SeeReason.SrcLoc -- (tests)
+import SeeReason.Log -- (tests)
 import System.Exit
 import Test.HUnit hiding (Path)
+import Text.PrettyPrint.HughesPJClass (prettyShow)
 
 main :: HasCallStack => IO ()
 main =
@@ -15,9 +18,9 @@ main =
 tests :: HasCallStack => Test
 tests =
   TestList
-      [ TestCase (assertEqual "prettyLoc"
+      [ TestCase (assertEqual "prettyShow"
                    "Data.Map:20"
-                   (prettyLoc testloc))
+                   (prettyShow testloc))
       , TestCase (assertEqual "srcloc"
                    "Data.Map:20"
                    (srcloc @String testloc))
@@ -49,11 +52,8 @@ tests =
                     "Main:44:3")
                    (compactStack @String testlocs))
       , TestCase (assertEqual "compactStack'"
-                   ("AppraisalBase.Layout.Viewport.layoutViewport:61 \8592 " <>
-                    "AppraisalClient.AppraisalClient:131 \8592 " <>
-                    "AppraisalClient.AppraisalClient:90 \8592 " <>
-                    "Main:44:3")
-                   (compactStack' @String testlocs))
+                   "AppraisalBase.Layout.Viewport.layoutViewport:61 < AppraisalClient.AppraisalClient:131 < AppraisalClient.AppraisalClient:90 < Main:44:3"
+                   (compactStack @String testlocs))
       , TestCase (assertEqual "locs 0"
                    ("AppraisalBase.Layout.Viewport:61 -> " <>
                     "AppraisalClient.AppraisalClient:131 -> " <>
@@ -76,6 +76,15 @@ tests =
                    3
                    (length getStack))
       ]
+
+-- | Verbosely format the location of the nth level up in a call stack
+prettyLocN :: CallStack -> Int -> Maybe String
+prettyLocN stack n = preview (to getCallStack . ix n . to (prettyShow . snd)) stack
+ 
+-- | Verbosely format the full call stack starting at the nth level up.
+locs :: CallStack -> Int -> String
+locs stack n =
+  (intercalate " -> " . fmap (prettyShow . snd) . drop n . getCallStack) stack
 
 testloc :: SrcLoc
 testloc = SrcLoc "containers" "Data.Map" "<file>" 20 1 21 10
