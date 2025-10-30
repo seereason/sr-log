@@ -11,7 +11,6 @@
 module SeeReason.LogClient
   ( setupClientLogger
   , setClientLoggingLevel
-  , HasSavedTime(..)
   , module SeeReason.Log
   ) where
 
