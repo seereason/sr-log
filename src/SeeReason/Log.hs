@@ -17,6 +17,7 @@ module SeeReason.Log
   , LoggerName(LoggerName)
   , LogConfig(LogConfig, loggerConfig)
   , LoggerConfig(LoggerConfig, logStack, logLevel)
+  , loggerName, logger
   , defaultLogConfig
   , defaultLoggerConfig
   , alog
@@ -137,10 +138,13 @@ putLoc = liftIO (putStr (compactStack (take 2 getStack) <> " - "))
 -- excluding names from this module.  This is fragile, refactoring can
 -- break it.
 logger :: HasCallStack => IO Logger
-logger =
-  case getStack of
-    [] -> getRootLogger
-    ((_, SrcLoc {..}) : _) -> getLogger srcLocModule
+logger = getLogger loggerName
+
+loggerName :: HasCallStack => String
+loggerName =
+  case dropPackageFrames getStack of
+    [] -> rootLoggerName
+    ((_, SrcLoc {..}) : _) -> srcLocModule
 
 -- trimmedStack :: HasCallStack => [([Char], SrcLoc)]
 -- trimmedStack = take 2 (getCallStack callStack)
