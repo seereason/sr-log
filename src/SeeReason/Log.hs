@@ -8,7 +8,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS -Wall -Werror=unused-imports -Werror=redundant-constraints -Werror=unused-top-binds -Werror=name-shadowing #-}
+{-# OPTIONS -Wall #-}
 
 module SeeReason.Log
   ( -- * Configuration
@@ -362,8 +362,12 @@ thisLocation'' = fromString $ prettyframe here
 ici :: (HasCallStack, IsString s) => s
 ici = thisLocation
 
+-- | The function name appears in a pair with the location where it is
+-- called, not where it is located.  For this reason we drop one
+-- additional frame here, the one that contains the the function
+-- "thisFunction".
 thisFunction :: (HasCallStack, IsString s) => s
-thisFunction = maybe "???" (fromString . fst . fst) $ List.uncons $ dropModuleFrames getStack
+thisFunction = maybe "???" (fromString . fst . fst) $ List.uncons $ tail $ dropModuleFrames getStack
 
 compactStackWith :: forall s. (IsString s, Monoid s) => (forall a. [a] -> [a]) -> [(String, SrcLoc)] -> s
 compactStackWith f locs = compactStack ((f . drop 1) locs)
