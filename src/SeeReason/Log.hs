@@ -184,7 +184,7 @@ logString fn msg =
     pre = compactStack (take 2 locs) <> " - "
     suf = if length locs > 2 then formattedStack locs else ""
     locs :: [(String, SrcLoc)]
-    locs = fn $ dropModuleFrames {-LogPure-} $ dropModuleFrames {-SrcLoc-} getStack
+    locs = fn $ dropModuleFrames {-SrcLoc-} getStack
     lim =
 #if defined(darwin_HOST_OS)
           2002
@@ -282,13 +282,13 @@ logger = getLogger $ {-trace ("logger at: " <> loggerLoc) $-} loggerName
 
 loggerName :: HasCallStack => String
 loggerName =
-  case dropPackageFrames getStack of
+  case dropModuleFrames getStack of
     [] -> rootLoggerName
     ((_, SrcLoc {..}) : _) -> srcLocModule
 
 loggerLoc :: HasCallStack => String
 loggerLoc =
-  case dropPackageFrames getStack of
+  case dropModuleFrames getStack of
     [] -> rootLoggerName
     ((_, l) : _) -> prettyLoc l
 
