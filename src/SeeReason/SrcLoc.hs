@@ -18,6 +18,10 @@ module SeeReason.SrcLoc
   -- * Full stack formatting
   , prettyLoc
   , prettyLocN
+  , topLoc
+  , topLocs
+  , putStrLnLoc
+  , putStrLnLocs
   , locs
   -- * Compact stack formatting
   , srcloc
@@ -32,8 +36,6 @@ module SeeReason.SrcLoc
   -- * Log string formatting
   , locDrop
   -- , tests, testloc, testlocs, teststack
-  , putStrLnLoc
-  , putStrLnLocs
   ) where
 
 import Control.Lens(ix, preview, to)
@@ -58,6 +60,18 @@ prettyLoc SrcLoc{..} =
     [ srcLocModule, ":"
     , show srcLocStartLine {-, ":"
     , show srcLocStartCol-} ]
+
+topLoc :: (IsString s, Monoid s, HasCallStack) => s
+topLoc = compactStack (take 2 $ dropModuleFrames $ getStack)
+
+topLocs :: (IsString s, Monoid s, HasCallStack) => Int -> s
+topLocs n = compactStack (take (n + 2) $ dropModuleFrames $ getStack)
+
+putStrLnLoc :: (MonadIO m, HasCallStack) => String -> m ()
+putStrLnLoc msg = liftIO $ putStrLn (msg <> " (" <> topLoc <> ")")
+
+putStrLnLocs :: (MonadIO m, HasCallStack) => Int -> String -> m ()
+putStrLnLocs n msg = liftIO $ putStrLn (msg <> " (" <> topLocs n <> ")")
 
 -- | Verbosely format the full call stack starting at the nth level up.
 locs :: CallStack -> Int -> String
@@ -145,9 +159,3 @@ compactLocs ((_, loc) : more@((caller, _) : _)) =
     -- figure out which caller is missing the HasCallStack constraint.
     stacktail [loc'] = [srcloccol loc']
     stacktail (loc' : more') = srcloc loc' : stacktail more'
-
-putStrLnLoc :: (MonadIO m, HasCallStack) => String -> m ()
-putStrLnLoc msg = liftIO $ putStrLn (msg <> " (" <> compactStack (take 2 $ dropModuleFrames $ getStack) <> ")")
-
-putStrLnLocs :: (MonadIO m, HasCallStack) => Int -> String -> m ()
-putStrLnLocs n msg = liftIO $ putStrLn (msg <> " (" <> compactStack (take (n + 2) $ dropModuleFrames $ getStack) <> ")")
