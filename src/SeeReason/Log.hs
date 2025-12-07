@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
@@ -24,6 +26,7 @@ module SeeReason.Log
   , alog
   , alogDrop
   , alogN
+  , clog
   , logString
 
     -- * Locations
@@ -50,19 +53,21 @@ module SeeReason.Log
   , dropModuleFrames, dropPackageFrames
 
     -- * Elapsed time
+#if 0
   , HasSavedTime(..)
   , alogElapsed
+#endif
     -- * Re-exports
   , Priority(..)
   ) where
 
-import Control.Lens ((.=), Lens', ix, preview, to, use)
+import Control.Lens ((.=), Lens', ix, preview, to, use, view)
 import Control.Monad.Except (when)
 import Control.Monad.State (MonadState)
 import Control.Monad.Trans (MonadIO(liftIO))
 import Data.Bool (bool)
 import Data.Data (Data)
--- import Data.Default (Default(def))
+import Data.Default (Default(def))
 import Data.List as List (intercalate, intersperse, isSuffixOf, uncons)
 import Data.Map as Map (Map)
 import Data.Maybe (fromMaybe)
@@ -72,10 +77,12 @@ import Data.String (IsString(fromString))
 import Data.Text (pack, Text)
 import Data.Time (diffUTCTime, getCurrentTime, UTCTime)
 import Data.Typeable (Typeable)
+-- import Debug.Trace (trace)
+import Extra.Lens (HasLens(hasLens))
 import GHC.Generics (Generic)
 import GHC.Stack (CallStack, callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
 import SeeReason.LogOrphans ()
-import System.Log.Logger (getLevel, getLogger, getRootLogger, Logger, logL, Priority(..), rootLoggerName)
+import System.Log.Logger ({-getLevel,-} getLogger, {-getRootLogger,-} Logger, logL, Priority(..), rootLoggerName)
 import Text.PrettyPrint.HughesPJClass (prettyShow)
 import Text.Printf (printf)
 
@@ -181,10 +188,12 @@ logString fn msg =
   pre <> take (lim - len) msg <> suf
   where
     len = length pre + length suf
-    pre = compactStack (take 2 locs) <> " - "
-    suf = if length locs > 2 then formattedStack locs else ""
+    pre = compactStack (take 2 allLocs) <> " - "
+    suf = if locs /= allLocs then formattedStack locs else ""
     locs :: [(String, SrcLoc)]
-    locs = fn $ dropModuleFrames {-SrcLoc-} getStack
+    locs = fn allLocs
+    allLocs :: [(String, SrcLoc)]
+    allLocs = dropModuleFrames {-SrcLoc-} getStack
     lim =
 #if defined(darwin_HOST_OS)
           2002
@@ -258,13 +267,68 @@ defaultLoggerConfig = LoggerConfig {logLevel = WARNING, logStack = False, logLim
 alogDrop :: (MonadIO m, HasCallStack) => (Locs -> Locs) -> Priority -> String -> m ()
 alogDrop fn priority msg = do
   -- time <- getCurrentTime
+  -- (liftIO . putStrLn . ("loggerLoc: " <>)) $ loggerLoc
+  -- (liftIO . putStrLn . ("loggerName: " <>)) $ loggerName
+  -- liftIO $ (putStrLn . ("level=" <>) . show . getLevel) =<< logger
   l <- liftIO logger
   liftIO $ logL l priority (logString fn msg)
+
+data LoggerSettings =
+  LoggerSettings
+  { -- * for clog and mlog
+    showCallStack :: Bool
+  , showFullStack :: Bool
+  , mapStack :: Locs -> Locs
+    -- * for mlog
+  , saveTime :: Bool
+  , showElapsed :: Bool
+  , savedTime :: UTCTime
+  } deriving Generic
+
+instance Default LoggerSettings where
+  def = LoggerSettings {showCallStack = False
+                       , showFullStack = False
+                       , mapStack = id
+                       -- , saveTime = False, showElapsed = False -- required MonadState
+                       }
 
 -- | Normal log message with location
 alog :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alog priority msg | priority >= WARNING = alogWithStack priority msg
 alog priority msg = alogDrop (take 2) priority msg
+
+instance HasLens LoggerSettings LoggerSettings where hasLens = id
+
+clog :: (MonadIO m, ?settings :: settings, HasLens settings LoggerSettings, HasCallStack) => Priority -> String -> m ()
+clog priority msg | view (hasLens . to showFullStack) ?settings = alogWithStack priority msg
+clog priority msg | view (hasLens . to showCallStack) ?settings = alogDrop id priority msg
+clog priority msg | priority >= WARNING = alogDrop id priority msg
+clog priority msg = alogDrop (take 2) priority msg
+
+mlog :: forall s m. (MonadIO m, MonadState s m, HasLens s LoggerSettings, HasCallStack) => Priority -> String -> m ()
+mlog priority msg = do
+  let lns :: Lens' s LoggerSettings
+      lns = hasLens
+  loggerSettings <- use hasLens
+  when (saveTime loggerSettings) $ do
+         now <- liftIO getCurrentTime
+         lns . #savedTime .= now
+  when (showElapsed loggerSettings) $ do
+    prev <- use (lns . #savedTime)
+    now <- liftIO getCurrentTime
+    lns . #savedTime .= now
+    settings <- use lns
+    let ?settings = settings
+    clog priority
+      (msg <> if showElapsed loggerSettings
+              then " (elapsed: " <>
+#if MIN_VERSION_time(1,9,0)
+                      formatTime defaultTimeLocale "%T%4Q"
+#else
+                      ((printf "%.04f" :: Double -> String) . fromRational . toRational)
+#endif
+                        (diffUTCTime now prev) <> ")"
+              else "")
 
 alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogWithStack priority msg =
@@ -295,6 +359,7 @@ loggerLoc =
 -- trimmedStack :: HasCallStack => [([Char], SrcLoc)]
 -- trimmedStack = take 2 (getCallStack callStack)
 
+#if 0
 class HasSavedTime s where savedTime :: Lens' s UTCTime
 instance HasSavedTime UTCTime where savedTime = id
 
@@ -309,6 +374,7 @@ alogElapsed priority msg = do
   liftIO $
     logL l priority $
       logStringOld prev time priority msg
+#endif
 
 alogN :: (MonadIO m, HasCallStack) => Int -> Priority -> String -> m ()
 alogN depth priority msg = liftIO $ do

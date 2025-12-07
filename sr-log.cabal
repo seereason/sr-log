@@ -1,5 +1,5 @@
 Name:           sr-log
-Version:        1.20
+Version:        1.21
 License:        BSD3
 Author:         David Fox, Clifford Beshers
 Category:       Unclassified
@@ -25,6 +25,7 @@ Library
     mtl,
     pretty,
     safecopy,
+    sr-utils >= 1.112,
     text,
     time
   HS-Source-Dirs: src
