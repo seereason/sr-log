@@ -189,8 +189,9 @@ logString fn msg =
   pre <> take (lim - len) msg <> suf
   where
     len = length pre + length suf
-    pre = compactStack (take 2 allLocs) <> " - "
-    suf = if locs /= allLocs then formattedStack locs else ""
+    callSite = take 2 allLocs
+    pre = compactStack callSite <> " - "
+    suf = if locs /= callSite then formattedStack locs else ""
     locs :: [(String, SrcLoc)]
     locs = fn allLocs
     allLocs :: [(String, SrcLoc)]
