@@ -17,6 +17,7 @@ module SeeReason.Log
     LogConfig(LogConfig, loggerConfig)
   , LoggerName(LoggerName)
   , LoggerConfig(LoggerConfig, logStack, logLevel)
+  , LoggerSettings(..)
   , defaultLoggerConfig
   , defaultLogConfig
 
