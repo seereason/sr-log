@@ -275,11 +275,11 @@ alogDrop fn priority msg = do
 
 data LoggerSettings =
   LoggerSettings
-  { -- * for clog and mlog
+  { -- for clog and mlog
     showCallStack :: Bool
   , showFullStack :: Bool
   , mapStack :: Locs -> Locs
-    -- * for mlog
+    -- for mlog
   , saveTime :: Bool
   , showElapsed :: Bool
   , savedTime :: UTCTime
