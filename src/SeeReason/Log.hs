@@ -280,18 +280,22 @@ data LoggerSettings =
   { -- for clog and mlog
     showCallStack :: Bool
   , showFullStack :: Bool
+#if 0
   , mapStack :: Locs -> Locs
+#endif
     -- for mlog
   , saveTime :: Bool
   , showElapsed :: Bool
-  , savedTime :: UTCTime
+  , savedTime :: Maybe UTCTime
   } deriving Generic
 
 instance Default LoggerSettings where
-  def = LoggerSettings {showCallStack = False
+  def = LoggerSettings { showCallStack = False
                        , showFullStack = False
-                       , mapStack = id
-                       -- , saveTime = False, showElapsed = False -- required MonadState
+                       -- , mapStack = id
+                       , saveTime = False
+                       , showElapsed = False -- required MonadState
+                       , savedTime = Nothing
                        }
 
 -- | Normal log message with location
@@ -301,6 +305,7 @@ alog priority msg = alogDrop (take 2) priority msg
 
 instance HasLens LoggerSettings LoggerSettings where hasLens = id
 
+-- | Log function with access to a settings record.
 clog :: (MonadIO m, ?settings :: settings, HasLens settings LoggerSettings, HasCallStack) => Priority -> String -> m ()
 clog priority msg | view (hasLens . to showFullStack) ?settings = alogWithStack priority msg
 clog priority msg | view (hasLens . to showCallStack) ?settings = alogDrop id priority msg
@@ -314,23 +319,25 @@ mlog priority msg = do
   loggerSettings <- use hasLens
   when (saveTime loggerSettings) $ do
          now <- liftIO getCurrentTime
-         lns . #savedTime .= now
+         lns . #savedTime .= Just now
   when (showElapsed loggerSettings) $ do
     prev <- use (lns . #savedTime)
     now <- liftIO getCurrentTime
-    lns . #savedTime .= now
+    lns . #savedTime .= Just now
     settings <- use lns
     let ?settings = settings
     clog priority
-      (msg <> if showElapsed loggerSettings
-              then " (elapsed: " <>
+      (msg <>
+       case (showElapsed loggerSettings, fmap (diffUTCTime now) prev) of
+         (True, Just t) ->
+           " (elapsed: " <>
 #if MIN_VERSION_time(1,9,0)
-                      formatTime defaultTimeLocale "%T%4Q"
+           formatTime defaultTimeLocale "%T%4Q"
 #else
-                      ((printf "%.04f" :: Double -> String) . fromRational . toRational)
+           ((printf "%.04f" :: Double -> String) . fromRational . toRational)
 #endif
-                        (diffUTCTime now prev) <> ")"
-              else "")
+           t <> ")"
+         _ -> "")
 
 alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogWithStack priority msg =
