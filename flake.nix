@@ -1,7 +1,7 @@
 {
   inputs = {
   };
-  outputs inputs: {
+  outputs = inputs: {
     packages = {};
   };
-]
+}
