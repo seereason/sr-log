@@ -1,7 +1,8 @@
 {
   inputs = {
+    nixpkgs.url = "github:nixos/nixpgs";
   };
-  outputs = inputs: {
-    packages = {};
+  outputs = {nixpkgs} @inputs: {
+    packages = { hello = nixpkgs.hello; };
   };
 }
