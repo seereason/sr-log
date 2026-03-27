@@ -65,7 +65,6 @@ module SeeReason.Log
   ) where
 
 import Control.Lens ((.=), Lens', ix, preview, to, use, view)
-import Control.Monad.Except (when)
 import Control.Monad.State (MonadState)
 import Control.Monad.Trans (MonadIO(liftIO))
 import Data.Bool (bool)
