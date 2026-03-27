@@ -34,6 +34,8 @@ module SeeReason.Log
   , loc
   , srclocList
   , srcloc
+  , srcFunctions
+  , srcFunctionList
   , srcloccol
   , srcfunloc
   , srclocs
@@ -100,8 +102,8 @@ mintercalate :: Monoid s => s -> [s] -> s
 mintercalate x xs = mconcat (intersperse x xs)
 
 -- | Verbosely format the location of the nth level up in a call stack
-prettyLocN :: CallStack -> Int -> Maybe String
-prettyLocN stack n = preview (to getCallStack . ix n . to (prettyLoc . snd)) stack
+-- prettyLocN :: CallStack -> Int -> Maybe String
+-- prettyLocN stack n = preview (to getCallStack . ix n . to (prettyLoc . snd)) stack
 
 prettyLoc :: SrcLoc -> String
 prettyLoc = prettyShow
@@ -133,6 +135,15 @@ srclocList = fmap (fromString . srcloc . snd) . reverse . getCallStack
 -- | Compactly format a source location
 srcloc :: (IsString s, Semigroup s) => SrcLoc -> s
 srcloc l = fromString (srcLocModule l) <> ":" <> fromString (show (srcLocStartLine l))
+
+srcFunctions :: (IsString s, Monoid s) => CallStack -> s
+srcFunctions = mintercalate (fromString " >") . srcFunctionList
+
+srcFunctionList :: IsString s => CallStack -> [s]
+srcFunctionList = fmap (fromString . srcFunction) . reverse . getCallStack
+
+srcFunction :: (IsString s, Semigroup s) => (String, SrcLoc) -> s
+srcFunction (name, l) = fromString (srcLocModule l) <> "." <> fromString name
 
 -- | Compactly format a source location with a function name
 srcfunloc :: (IsString s, Semigroup s) => SrcLoc -> s -> s
@@ -216,6 +227,7 @@ groupsOf n l =
     ([], []) -> []
     (l', l'') -> l' : groupsOf n l''
 
+#if 0
 logStringOld  :: UTCTime -> UTCTime -> Priority -> String -> String
 logStringOld prev time priority msg =
 #if defined(darwin_HOST_OS)
@@ -231,6 +243,7 @@ logStringOld prev time priority msg =
             (("elapsed: " <>) . (printf "%.04f" :: Double -> String) . fromRational . toRational)
 #endif
               (diffUTCTime time prev)
+#endif
 
 type FunctionName = String
 type Locs = [(FunctionName, SrcLoc)]
@@ -312,6 +325,7 @@ clog priority msg | view (hasLens . to showCallStack) ?settings = alogDrop id pr
 clog priority msg | priority >= WARNING = alogDrop id priority msg
 clog priority msg = alogDrop (take 2) priority msg
 
+#if 0
 mlog :: forall s m. (MonadIO m, MonadState s m, HasLens s LoggerSettings, HasCallStack) => Priority -> String -> m ()
 mlog priority msg = do
   let lns :: Lens' s LoggerSettings
@@ -338,6 +352,7 @@ mlog priority msg = do
 #endif
            t <> ")"
          _ -> "")
+#endif
 
 alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogWithStack priority msg =
