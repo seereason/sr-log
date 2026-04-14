@@ -29,7 +29,7 @@ Library
     text,
     time
   HS-Source-Dirs: src
-  if !impl(ghcjs)
+  if !impl(ghcjs) && !arch(javascript)
     Exposed-Modules: SeeReason.LogServer
     Build-Depends:
       directory,
