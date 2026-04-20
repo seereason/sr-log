@@ -19,7 +19,6 @@ Library
     cereal,
     containers,
     data-default,
-    hslogger,
     HUnit,
     lens,
     mtl,
@@ -33,6 +32,7 @@ Library
     Exposed-Modules: SeeReason.LogServer
     Build-Depends:
       directory,
+      hslogger,
       process,
       template-haskell,
       text
