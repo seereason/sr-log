@@ -2,6 +2,7 @@
 
 import Control.Lens (preview, to, ix)
 import Data.List (intercalate)
+import Extra.SrcLoc (srcloc)
 import GHC.Stack (callStack, getCallStack, HasCallStack, SrcLoc(..))
 import GHC.Stack.Types (CallStack(EmptyCallStack, PushCallStack))
 import SeeReason.Log -- (tests)
