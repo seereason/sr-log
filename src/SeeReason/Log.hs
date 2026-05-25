@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DerivingStrategies, DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE OverloadedLabels #-}
@@ -10,7 +11,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS -Wall #-}
+{-# OPTIONS -Wall -Wno-redundant-constraints #-}
 
 module SeeReason.Log
   ( -- * Configuration
@@ -40,33 +41,25 @@ module SeeReason.Log
   ) where
 
 import Control.Lens (to, view)
--- import Control.Monad.Except (when)
--- import Control.Monad.State (MonadState)
 import Control.Monad.Trans (MonadIO(liftIO))
--- import Data.Bool (bool)
 import Data.Data (Data)
 import Data.Default (Default(def))
-import Data.List as List (intercalate, intersperse, isSuffixOf, uncons)
+import Data.List as List (intercalate, isSuffixOf)
 import Data.Map as Map (Map)
--- import Data.Maybe (fromMaybe)
-import Data.SafeCopy (SafeCopy, safeGet, safePut)
-import Data.Serialize (Serialize(get, put))
+import Data.SafeCopy (SafeCopy)
+import Data.Serialize (Serialize)
 import Data.String (IsString(fromString))
 import Data.Text (pack, Text)
 import Data.Time ({-diffUTCTime, getCurrentTime,-} UTCTime)
 import Data.Typeable (Typeable)
--- import Debug.Trace (trace)
 import Extra.Lens (HasLens(hasLens))
+import Extra.Serialize (SafeCopySerialize(..))
 import Extra.SrcLoc (compactLocs, compactStack, dropModuleFrames)
 import GHC.Generics (Generic)
-import GHC.Stack (CallStack, callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
+import GHC.Stack (callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
 import SeeReason.LogOrphans ()
 import Extra.SrcLoc
 import System.Log.Logger ({-getLevel,-} getLogger, {-getRootLogger,-} Logger, logL, Priority(..), rootLoggerName)
-import Text.PrettyPrint.HughesPJClass (prettyShow)
--- import Text.Printf (printf)
-
-import qualified Data.Function as Fn ((&))
 
 #if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup (Semigroup((<>)))
@@ -129,7 +122,7 @@ type FunctionName = String
 type Locs = [(FunctionName, SrcLoc)]
 
 newtype LoggerName = LoggerName Text deriving (Generic, Eq, Ord, Show, Typeable, Data)
-instance Serialize LoggerName where get = safeGet; put = safePut
+deriving via (SafeCopySerialize LoggerName) instance Serialize LoggerName
 instance SafeCopy LoggerName
 instance IsString LoggerName where
   fromString = LoggerName . pack
@@ -139,7 +132,7 @@ data LogConfig =
   { loggerConfig :: Map LoggerName LoggerConfig
   } deriving (Generic, Show, Eq, Ord, Data, Typeable)
 
-instance Serialize LogConfig where get = safeGet; put = safePut
+deriving via (SafeCopySerialize LogConfig) instance Serialize LogConfig
 instance SafeCopy LogConfig
 
 data LoggerConfig =
@@ -149,7 +142,7 @@ data LoggerConfig =
   , logLimit :: Maybe Int -- ^ Truncate messages at this length
   } deriving (Generic, Show, Eq, Ord, Data, Typeable)
 
-instance Serialize LoggerConfig where get = safeGet; put = safePut
+deriving via (SafeCopySerialize LoggerConfig) instance Serialize LoggerConfig
 instance SafeCopy LoggerConfig
 
 defaultLogConfig :: LogConfig
