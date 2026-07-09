@@ -60,6 +60,7 @@ import GHC.Stack (callStack, fromCallSiteList, getCallStack, HasCallStack, prett
 import SeeReason.LogOrphans ()
 import Extra.SrcLoc
 import System.Log.Logger ({-getLevel,-} getLogger, {-getRootLogger,-} Logger, logL, Priority(..), rootLoggerName)
+import Text.PrettyPrint.HughesPJClass (pPrint)
 
 #if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup (Semigroup((<>)))
@@ -251,7 +252,7 @@ loggerLoc :: HasCallStack => String
 loggerLoc =
   case dropModuleFrames getStack of
     [] -> rootLoggerName
-    ((_, l) : _) -> prettyLoc l
+    ((_, l) : _) -> show (pPrint l)
 
 -- trimmedStack :: HasCallStack => [([Char], SrcLoc)]
 -- trimmedStack = take 2 (getCallStack callStack)
