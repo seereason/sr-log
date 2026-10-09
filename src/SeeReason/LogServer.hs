@@ -36,7 +36,7 @@ import System.Process (readProcess)
 -- Then run "service rsyslog restart".
 setupServerLogger :: Facility -> Priority -> IO ()
 setupServerLogger facility lvl = do
-  configureServerLogger
+  configureServerLogger -- no-op for nixos and darwin
   appLog <- openlog "appraisalscribe3" [PID] facility lvl
   updateGlobalLogger rootLoggerName (setLevel lvl . setHandlers [appLog])
 
@@ -71,7 +71,12 @@ configureServerLogger = do
   case (isNIXOS || isDarwin) of
     True -> do
       hPutStrLn stderr "On NIXOS/Darwin - skipping rsyslog config"
-    False -> do
+    False ->
+      rsyslogConfig
+
+-- This probably only works on our debian machines
+rsyslogConfig :: IO ()
+rsyslogConfig = do
       let path = "/etc/rsyslog.d/30-appraisalscribe3-development.conf"
           text = unlines ["local2.* /var/log/appraisalscribe3-development.log", "& ~"]
       exists <- doesFileExist path

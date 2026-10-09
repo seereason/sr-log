@@ -2,6 +2,7 @@
 {-# LANGUAGE DerivingStrategies, DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -54,11 +55,10 @@ import Data.Time ({-diffUTCTime, getCurrentTime,-} UTCTime)
 import Data.Typeable (Typeable)
 import Extra.Lens (HasLens(hasLens))
 import Extra.Serialize (SafeCopySerialize(..))
-import Extra.SrcLoc (compactLocs, compactStack, dropModuleFrames)
+import Extra.SrcLoc (Call(Call, callee_, site_), calls, compactLocs, compactStack, dropModuleFrames, getStack)
 import GHC.Generics (Generic)
 import GHC.Stack (callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
 import SeeReason.LogOrphans ()
-import Extra.SrcLoc
 import System.Log.Logger ({-getLevel,-} getLogger, {-getRootLogger,-} Logger, logL, Priority(..), rootLoggerName)
 import Text.PrettyPrint.HughesPJClass (pPrint)
 
@@ -69,18 +69,21 @@ import Data.Semigroup (Semigroup((<>)))
 import Data.Time.Format (formatTime, defaultTimeLocale)
 #endif
 
-logString :: HasCallStack => ([(String, SrcLoc)] -> [(String, SrcLoc)]) -> String -> String
-logString fn msg =
-  pre <> take (lim - len) msg <> suf
+logString :: forall call. (HasCallStack) => ([Call] -> [Call]) -> String -> String
+logString fn msg = do
+  pre allLocs <> take (lim - len allLocs) msg <> suf allLocs
   where
-    len = length pre + length suf
-    callSite = take 2 allLocs
-    pre = compactStack callSite <> " - "
-    suf = if locs /= callSite then formattedStack locs else ""
-    locs :: [(String, SrcLoc)]
-    locs = fn allLocs
-    allLocs :: [(String, SrcLoc)]
-    allLocs = dropModuleFrames {-SrcLoc-} getStack
+    len :: [Call] -> Int
+    len fs = length (pre fs) + length (suf fs)
+    callSite :: [Call] -> [Call]
+    callSite fs = take 2 fs
+    pre :: [Call] -> String
+    pre fs = compactStack (callSite fs) <> " - "
+    suf :: [Call] -> String
+    suf fs = if locs fs /= callSite fs then formattedStack (locs fs) else ""
+    locs :: [Call] -> [Call]
+    locs fs = fn fs
+    allLocs = dropModuleFrames getStack
     lim =
 #if defined(darwin_HOST_OS)
           2002
@@ -88,7 +91,7 @@ logString fn msg =
           60000
 #endif
 
-formattedStack :: [(String, SrcLoc)] -> String
+formattedStack :: [Call] -> String
 formattedStack locs =
   "\n    (" <> intercalate "\n     " stk <> ")"
   where
@@ -120,7 +123,7 @@ logStringOld prev time priority msg =
 #endif
 
 type FunctionName = String
-type Locs = [(FunctionName, SrcLoc)]
+type Locs = [Call]
 
 newtype LoggerName = LoggerName Text deriving (Generic, Eq, Ord, Show, Typeable, Data)
 deriving via (SafeCopySerialize LoggerName) instance Serialize LoggerName
@@ -228,9 +231,12 @@ mlog priority msg = do
          _ -> "")
 #endif
 
+sites :: [Call] -> [(String, SrcLoc)]
+sites = fmap (\Call{..} -> (callee_, site_))
+
 alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogWithStack priority msg =
-  alogDrop (take 2) priority (msg <> "\n" <> prettyCallStack (fromCallSiteList $ dropModuleFrames $ dropModuleFrames $ getCallStack callStack))
+  alogDrop (take 2) priority (msg <> "\n" <> prettyCallStack (fromCallSiteList $ sites $ dropModuleFrames $ dropModuleFrames $ calls $ getCallStack callStack))
 
 -- | Truncate a string and add an ellipsis.
 -- ellipsis :: Int -> String -> String
@@ -240,19 +246,19 @@ alogWithStack priority msg =
 -- excluding names from this module.  This is fragile, refactoring can
 -- break it.
 logger :: HasCallStack => IO Logger
-logger = getLogger $ {-trace ("logger at: " <> loggerLoc) $-} loggerName
+logger = getLogger {-trace ("logger at: " <> loggerLoc) $-} loggerName
 
-loggerName :: HasCallStack => String
+loggerName :: (HasCallStack) => String
 loggerName =
   case dropModuleFrames getStack of
     [] -> rootLoggerName
-    ((_, SrcLoc {..}) : _) -> srcLocModule
+    (Call{site_ = SrcLoc{..}} : _) -> srcLocModule
 
 loggerLoc :: HasCallStack => String
 loggerLoc =
   case dropModuleFrames getStack of
     [] -> rootLoggerName
-    ((_, l) : _) -> show (pPrint l)
+    (Call{..} : _) -> show (pPrint site_)
 
 -- trimmedStack :: HasCallStack => [([Char], SrcLoc)]
 -- trimmedStack = take 2 (getCallStack callStack)
@@ -283,5 +289,5 @@ alogN depth priority msg = liftIO $ do
 type DropFn = Locs -> Locs
 
 callSiteN :: HasCallStack => Int -> DropFn
-callSiteN depth = take (depth + 1) . dropWhile (\(_, SrcLoc {srcLocModule = m}) -> isSuffixOf ".Log" m)
+callSiteN depth = take (depth + 1) . dropWhile (\Call{site_ = SrcLoc {srcLocModule = m}} -> isSuffixOf ".Log" m)
   where _ = callStack

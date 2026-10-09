@@ -2,8 +2,8 @@
 
 import Control.Lens (preview, to, ix)
 import Data.List (intercalate)
-import Extra.SrcLoc (srcloc, srclocs, srcloccol, srclocList, srcfunloc, compactStack, getStack)
-import GHC.Stack (callStack, getCallStack, HasCallStack, SrcLoc(..))
+import Extra.SrcLocIO (srcloc, srclocs, srcloccol, srclocList, srcfunloc, compactStack, getStack)
+import GHC.Stack ({-callStack,-} getCallStack, HasCallStack, SrcLoc(..))
 import GHC.Stack.Types (CallStack(EmptyCallStack, PushCallStack))
 import SeeReason.Log -- (tests)
 import System.Exit
@@ -66,16 +66,7 @@ tests =
       , TestCase (assertEqual "prettyLocN 2"
                    (Just "AppraisalClient.AppraisalClient:90")
                    (prettyLocN teststack 2))
-      , TestCase (assertEqual "getStack"
-                {- [("getStack", SrcLoc {srcLocPackage = "main", srcLocModule = "Main", srcLocFile = "Tests.hs",
-                                         srcLocStartLine = 70, srcLocStartCol = 26, srcLocEndLine = 70, srcLocEndCol = 34}),
-                     ("tests",SrcLoc {srcLocPackage = "main", srcLocModule = "Main", srcLocFile = "Tests.hs", srcLocStartLine = 11,
-                                      srcLocStartCol = 13, srcLocEndLine = 11, srcLocEndCol = 18}),
-                     ("main",SrcLoc {srcLocPackage = "main", srcLocModule = "Main", srcLocFile = "Tests.hs",
-                                     srcLocStartLine = 10, srcLocStartCol = 1, srcLocEndLine = 10, srcLocEndCol = 1})]
-                   (show getStack) -}
-                   3
-                   (length getStack))
+      , TestCase (assertEqual "getStack" 3 (length getStack))
       ]
 
 -- | Verbosely format the location of the nth level up in a call stack
