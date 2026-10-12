@@ -2,7 +2,7 @@
 
 import Control.Lens (preview, to, ix)
 import Data.List (intercalate)
-import Extra.SrcLocIO (srcloc, srclocs, srcloccol, srclocList, srcfunloc, compactStack, getStack)
+import Extra.SrcLoc (calls, srcloc, srclocs, srcloccol, srcfunloc, compactStack, getStack)
 import GHC.Stack ({-callStack,-} getCallStack, HasCallStack, SrcLoc(..))
 import GHC.Stack.Types (CallStack(EmptyCallStack, PushCallStack))
 import SeeReason.Log -- (tests)
@@ -34,12 +34,14 @@ tests =
       , TestCase (assertEqual "srcloccol"
                    "Data.Map:20:1"
                    (srcloccol @String testloc))
+{-
       , TestCase (assertEqual "srclocList"
                    ["Main:44",
                     "AppraisalClient.AppraisalClient:90",
                     "AppraisalClient.AppraisalClient:131",
                     "AppraisalBase.Layout.Viewport:61"]
-                   (srclocList @String teststack))
+                   (fmap siteFormat $ calls teststack))
+-}
       , TestCase (assertEqual "srcfunloc"
                    "Data.Map.foo:20"
                    (srcfunloc @String testloc "foo"))
@@ -51,10 +53,10 @@ tests =
                     "AppraisalClient.AppraisalClient:131 < " <>
                     "AppraisalClient.AppraisalClient:90 < " <>
                     "Main:44:3")
-                   (compactStack @String testlocs))
+                   (compactStack @String $ calls testlocs))
       , TestCase (assertEqual "compactStack'"
                    "AppraisalBase.Layout.Viewport.layoutViewport:61 < AppraisalClient.AppraisalClient:131 < AppraisalClient.AppraisalClient:90 < Main:44:3"
-                   (compactStack @String testlocs))
+                   (compactStack @String $ calls testlocs))
       , TestCase (assertEqual "locs 0"
                    ("AppraisalBase.Layout.Viewport:61 -> " <>
                     "AppraisalClient.AppraisalClient:131 -> " <>

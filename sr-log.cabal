@@ -25,7 +25,7 @@ Library
     mtl,
     pretty,
     safecopy,
-    sr-utils >= 2.4,
+    sr-utils >= 2.5,
     text,
     time
   HS-Source-Dirs: src

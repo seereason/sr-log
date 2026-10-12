@@ -14,7 +14,7 @@ module SeeReason.LogClient
   , module SeeReason.Log
   ) where
 
-import SeeReason.Log
+import SeeReason.Log hiding (logger)
 import GHC.Stack (HasCallStack)
 import System.IO (stdout)
 import System.Log.Formatter (tfLogFormatter)

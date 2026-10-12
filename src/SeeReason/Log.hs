@@ -52,10 +52,9 @@ import Data.Serialize (Serialize)
 import Data.String (IsString(fromString))
 import Data.Text (pack, Text)
 import Data.Time ({-diffUTCTime, getCurrentTime,-} UTCTime)
-import Data.Typeable (Typeable)
 import Extra.Lens (HasLens(hasLens))
 import Extra.Serialize (SafeCopySerialize(..))
-import Extra.SrcLoc (Call(Call, callee_, site_), calls, compactLocs, compactStack, dropModuleFrames, getStack)
+import Extra.SrcLoc (Call(Call, callee_, site_), calls, compactLocs, compactStack, dropModuleFrames, getStack, sites)
 import GHC.Generics (Generic)
 import GHC.Stack (callStack, fromCallSiteList, getCallStack, HasCallStack, prettyCallStack, SrcLoc(..))
 import SeeReason.LogOrphans ()
@@ -69,7 +68,7 @@ import Data.Semigroup (Semigroup((<>)))
 import Data.Time.Format (formatTime, defaultTimeLocale)
 #endif
 
-logString :: forall call. (HasCallStack) => ([Call] -> [Call]) -> String -> String
+logString :: (HasCallStack) => ([Call] -> [Call]) -> String -> String
 logString fn msg = do
   pre allLocs <> take (lim - len allLocs) msg <> suf allLocs
   where
@@ -122,10 +121,9 @@ logStringOld prev time priority msg =
               (diffUTCTime time prev)
 #endif
 
-type FunctionName = String
 type Locs = [Call]
 
-newtype LoggerName = LoggerName Text deriving (Generic, Eq, Ord, Show, Typeable, Data)
+newtype LoggerName = LoggerName Text deriving (Generic, Eq, Ord, Show, Data)
 deriving via (SafeCopySerialize LoggerName) instance Serialize LoggerName
 instance SafeCopy LoggerName
 instance IsString LoggerName where
@@ -134,7 +132,7 @@ instance IsString LoggerName where
 data LogConfig =
   LogConfig
   { loggerConfig :: Map LoggerName LoggerConfig
-  } deriving (Generic, Show, Eq, Ord, Data, Typeable)
+  } deriving (Generic, Show, Eq, Ord, Data)
 
 deriving via (SafeCopySerialize LogConfig) instance Serialize LogConfig
 instance SafeCopy LogConfig
@@ -144,7 +142,7 @@ data LoggerConfig =
   { logLevel :: Priority
   , logStack :: Bool -- ^ Include a compact stack trace
   , logLimit :: Maybe Int -- ^ Truncate messages at this length
-  } deriving (Generic, Show, Eq, Ord, Data, Typeable)
+  } deriving (Generic, Show, Eq, Ord, Data)
 
 deriving via (SafeCopySerialize LoggerConfig) instance Serialize LoggerConfig
 instance SafeCopy LoggerConfig
@@ -230,9 +228,6 @@ mlog priority msg = do
            t <> ")"
          _ -> "")
 #endif
-
-sites :: [Call] -> [(String, SrcLoc)]
-sites = fmap (\Call{..} -> (callee_, site_))
 
 alogWithStack :: (MonadIO m, HasCallStack) => Priority -> String -> m ()
 alogWithStack priority msg =
