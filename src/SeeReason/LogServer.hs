@@ -12,7 +12,7 @@ module SeeReason.LogServer (
 --import Config (LogMode(..))
 import Control.Exception (try)
 import Control.Monad.Trans (MonadIO(..))
-import SeeReason.Log
+import SeeReason.Log hiding (logger)
 -- import Language.Haskell.TH (ExpQ, Exp, Loc(..), location, pprint, Q)
 import System.Directory (doesFileExist)
 import System.Exit

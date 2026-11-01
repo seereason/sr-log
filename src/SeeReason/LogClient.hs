@@ -18,7 +18,7 @@ import SeeReason.Log hiding (logger)
 import GHC.Stack (HasCallStack)
 import System.IO (stdout)
 import System.Log.Formatter (tfLogFormatter)
-import System.Log.Logger as Log (getLevel, getLogger, getRootLogger, Priority(..), saveGlobalLogger, setHandlers, setLevel)
+import System.Log.Logger as Log (getLevel, getLogger, getRootLogger, saveGlobalLogger, setHandlers, setLevel)
 import System.Log.Handler (setFormatter)
 import System.Log.Handler.Simple (verboseStreamHandler)
 
