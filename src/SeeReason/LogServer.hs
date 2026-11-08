@@ -18,7 +18,7 @@ import System.Directory (doesFileExist)
 import System.Exit
 import System.IO (hPutStrLn, stderr)
 import System.Log.Handler.Syslog (openlog, Option(PID), Facility(..))
-import System.Log.Logger (clearLevel, getLevel, getLogger, {-logM,-} Priority(..), rootLoggerName, saveGlobalLogger, setHandlers, setLevel, updateGlobalLogger)
+import System.Log.Logger (clearLevel, getLevel, getLogger, rootLoggerName, saveGlobalLogger, setHandlers, setLevel, updateGlobalLogger)
 import System.Process (readProcess)
 
   -- unwords [formatTimeCombined time, msg]

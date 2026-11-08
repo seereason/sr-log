@@ -4,7 +4,7 @@ module SeeReason.LogFormat
   , formatRequestCombined
   ) where
 
-import Data.Time.Format (FormatTime(..), formatTime, defaultTimeLocale)
+import Data.Time.Format (FormatTime, formatTime, defaultTimeLocale)
 
 -- | Format the time as describe in the Apache combined log format.
 --   http://httpd.apache.org/docs/2.2/logs.html#combined
